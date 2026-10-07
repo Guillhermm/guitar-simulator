@@ -1,0 +1,127 @@
+:root {
+  --bg: #F1E9DC;
+  --text: #2B1B14;
+  --string-plain: #E6E6E0;
+  --string-plain-hot: #FFFFFF;
+  --string-wound: #C9A66B;
+  --string-wound-hot: #F0D49A;
+  --pearl: #EFE6D0;
+  --dark: #120C08;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14110E;
+    --text: #F1E9DC;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.stage {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guitar {
+  display: block;
+  width: min(100vw, calc(90vh * 1200 / 420));
+  max-height: 90vh;
+  aspect-ratio: 1200 / 420;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1rem;
+  margin: 0;
+  text-align: center;
+  font-size: 0.875rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+@media (orientation: portrait) and (max-width: 48rem) {
+  .guitar {
+    position: absolute;
+    top: calc(50% - 1.5rem);
+    left: 50%;
+    width: min(calc(100dvh - 3rem), calc((100vw - 1rem) / 0.35));
+    max-height: none;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+}
+
+.string { outline: none; }
+
+.string-line {
+  stroke: var(--string-plain);
+  stroke-linecap: round;
+  transition: stroke 120ms;
+}
+.string-line.wound { stroke: var(--string-wound); }
+
+.string-ghost {
+  fill: none;
+  stroke: var(--string-plain);
+  stroke-linecap: round;
+  opacity: 0;
+}
+.string-ghost.wound { stroke: var(--string-wound); }
+
+.string-live {
+  fill: none;
+  stroke: var(--string-plain-hot);
+  stroke-linecap: round;
+  opacity: 0;
+}
+.string-live.wound { stroke: var(--string-wound-hot); }
+
+.string.hover .string-line,
+.string.flash .string-line { stroke: var(--string-plain-hot); }
+.string.hover .string-line.wound,
+.string.flash .string-line.wound { stroke: var(--string-wound-hot); }
+
+.hover-dot, .press-dot, .key-dot {
+  fill: var(--pearl);
+  opacity: 0;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.string.hover .hover-dot { opacity: 0.35; }
+.string:focus-visible .key-dot { opacity: 0.6; }
+
+.focus-ring, .focus-halo {
+  fill: none;
+  opacity: 0;
+  pointer-events: none;
+}
+.focus-ring { stroke: var(--pearl); }
+.focus-halo { stroke: var(--dark); }
+.string:focus-visible .focus-ring,
+.string:focus-visible .focus-halo { opacity: 1; }
+
+.hit { fill: #000; fill-opacity: 0; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .string-line { transition: none; }
+}
