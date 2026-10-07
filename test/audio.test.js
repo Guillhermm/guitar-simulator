@@ -7,6 +7,7 @@ const fakeContext = () => {
   const ctx = {
     sampleRate: 8000,
     state: 'suspended',
+    currentTime: 12.5,
     destination: {},
     createGain: () => ({ gain: { value: 1 }, connect() {} }),
     createDynamicsCompressor: () => ({ connect() {} }),
@@ -15,7 +16,7 @@ const fakeContext = () => {
       return { length, copyToChannel() {} };
     },
     createBufferSource: () => {
-      const source = { buffer: null, started: 0, connect() {}, start() { this.started++; } };
+      const source = { buffer: null, started: 0, whens: [], connect() {}, start(when) { this.started++; this.whens.push(when); } };
       log.sources.push(source);
       return source;
     },
@@ -58,4 +59,24 @@ test('resume creates and resumes the context without playing', () => {
   player.resume();
   assert.equal(log.resumed, 1);
   assert.equal(log.sources.length, 0);
+});
+
+test('play returns the source and starts it at the given time, defaulting to now', () => {
+  const { ctx, log } = fakeContext();
+  const player = createPlayer({ createContext: () => ctx });
+  const timed = player.play(45, 13.25);
+  const immediate = player.play(45);
+  assert.equal(timed, log.sources[0]);
+  assert.deepEqual(timed.whens, [13.25]);
+  assert.deepEqual(immediate.whens, [0]);
+});
+
+test('now returns the context time, creating and resuming the context lazily', () => {
+  const { ctx, log } = fakeContext();
+  let created = 0;
+  const player = createPlayer({ createContext: () => { created++; return ctx; } });
+  assert.equal(created, 0);
+  assert.equal(player.now(), 12.5);
+  assert.equal(created, 1);
+  assert.equal(log.resumed, 1);
 });

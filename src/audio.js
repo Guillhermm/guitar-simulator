@@ -44,13 +44,20 @@ export const createPlayer = ({ createContext = defaultCreateContext, random = Ma
     if (ctx.state === 'suspended') ctx.resume();
   };
 
-  const play = (midi) => {
+  // Returns the source so a scheduled note can be stopped before it starts.
+  const play = (midi, when = 0) => {
     resume();
     const source = ctx.createBufferSource();
     source.buffer = bufferFor(midi);
     source.connect(master);
-    source.start();
+    source.start(when);
+    return source;
   };
 
-  return { play, resume };
+  const now = () => {
+    resume();
+    return ctx.currentTime;
+  };
+
+  return { play, resume, now };
 };

@@ -11,10 +11,13 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="stage">
-    <svg id="guitar" class="guitar" viewBox="0 0 1240 480" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Classical guitar"></svg>
-    <p class="hint">Click, tap or drag across the strings to play.</p>
-  </main>
+  <div class="app">
+    <main class="stage">
+      <svg id="guitar" class="guitar" viewBox="0 0 1240 480" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Classical guitar"></svg>
+      <p class="hint">Click, tap or drag across the strings to play.</p>
+    </main>
+    <section id="dock" class="dock" aria-label="Tablature"></section>
+  </div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

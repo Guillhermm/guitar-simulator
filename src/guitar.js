@@ -379,7 +379,7 @@ const createVibrator = (reducedMotion) => {
   return { pluck };
 };
 
-export const buildGuitar = (svg, { player }) => {
+export const buildGuitar = (svg, { player, onFretPress = () => {} }) => {
   const wires = wireXs();
   const cells = hitCells(wires);
   const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -393,6 +393,8 @@ export const buildGuitar = (svg, { player }) => {
   buildHeadstock(svg);
   const stringLayer = el('g', { class: 'strings' }, svg);
   const hitLayer = el('g', { class: 'hit-layer' }, svg);
+  // Pressing a fret must leave focus in the tab editor, which writes the pressed note.
+  hitLayer.addEventListener('mousedown', (e) => e.preventDefault());
 
   // A touch pointerdown is not a user activation, so the release resumes audio the press could not.
   svg.addEventListener('pointerup', player.resume);
@@ -427,9 +429,18 @@ export const buildGuitar = (svg, { player }) => {
     dot.setAttribute('cy', stringY(row, cell.cx));
   };
 
-  const pluck = (row, fret, cell = cells[fret]) => {
+  const fingertip = (s, row, cell) => {
+    const dot = el('circle', {
+      cx: cell.cx, cy: stringY(row, cell.cx), r: 5.5, fill: '#F3EBD8', opacity: 0, 'pointer-events': 'none',
+    }, stringLayer);
+    if (!dot.animate) { dot.remove(); return; }
+    const gone = dot.animate([{ opacity: 0.85 }, { opacity: 0.85, offset: 0.4 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
+    gone.onfinish = () => dot.remove();
+  };
+
+  // Visual only: the vibration, the press dot and, on a fretted cell, a fingertip that fades.
+  const strike = (row, fret, cell = cells[fret]) => {
     const s = strings[row];
-    player.play(noteAt(rowToString(row), fret));
     moveDot(s.pressDot, row, cell);
     if (s.pressDot.animate) {
       s.pressDot.animate(
@@ -437,7 +448,14 @@ export const buildGuitar = (svg, { player }) => {
         { duration: 300, easing: 'ease-out' },
       );
     }
+    if (fret > 0 && !cell.body) fingertip(s, row, cell);
     vibrator.pluck(s, segmentStart(fret, wires));
+  };
+
+  const pluck = (row, fret, cell = cells[fret]) => {
+    player.play(noteAt(rowToString(row), fret));
+    strike(row, fret, cell);
+    onFretPress(row, fret);
   };
 
   const showFret = (row) => {
@@ -475,5 +493,5 @@ export const buildGuitar = (svg, { player }) => {
     s.g.addEventListener('focus', () => { kb = { ...kb, row: s.row }; });
   });
 
-  return { pluck };
+  return { pluck, strike };
 };
