@@ -54,6 +54,36 @@ export const hitCells = (wires = wireXs()) => {
   });
 };
 
+const CELLS = hitCells();
+
+// The cell under x, with the whole zone left of the nut and anything past the saddle counted as fret 0.
+export const cellAt = (x, cells = CELLS) =>
+  cells.find((c) => x >= c.xa && x < c.xb) ?? (x < cells[0].xa ? cells[0] : cells[cells.length - 1]);
+
+// Strings crossed by the move prev -> next (points are {x, y} in SVG units), in the order crossed.
+// A move that ends exactly on a string counts as crossing it; a move that starts on one never does,
+// so the next move from that point does not trigger it twice.
+// Left of the nut the strings stop fanning, so the move is split at the nut and each half is linear.
+export const crossings = (prev, next, cells = CELLS) => {
+  const dx = next.x - prev.x;
+  const cuts = [0, 1];
+  if ((prev.x - NUT_X) * (next.x - NUT_X) < 0) cuts.splice(1, 0, (NUT_X - prev.x) / dx);
+  const pts = cuts.map((t) => ({ t, x: prev.x + t * dx, y: prev.y + t * (next.y - prev.y) }));
+  const hits = [];
+  for (let row = 0; row < STRING_COUNT; row += 1) {
+    const side = pts.map((p) => p.y - stringY(row, p.x));
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const [a, b] = [side[i], side[i + 1]];
+      if (a === 0 || a * b > 0) continue;
+      const u = a / (a - b);
+      const x = pts[i].x + u * (pts[i + 1].x - pts[i].x);
+      const y = pts[i].y + u * (pts[i + 1].y - pts[i].y);
+      hits.push({ row, fret: cellAt(x, cells).fret, x, y, t: pts[i].t + u * (pts[i + 1].t - pts[i].t) });
+    }
+  }
+  return hits.sort((m, n) => m.t - n.t || m.row - n.row).map(({ t, ...rest }) => rest);
+};
+
 // A finger in cell n stops the string at wire n, which leaves wire n to the saddle vibrating.
 export const segmentStart = (fret, wires = wireXs()) => (fret === 0 ? NUT_X : wires[fret - 1]);
 
@@ -366,6 +396,28 @@ export const buildGuitar = (svg, { player }) => {
 
   // A touch pointerdown is not a user activation, so the release resumes audio the press could not.
   svg.addEventListener('pointerup', player.resume);
+
+  const toSvg = (e) => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    return { x: p.x, y: p.y };
+  };
+  const last = new Map();
+  const endDrag = (e) => last.delete(e.pointerId);
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    last.set(e.pointerId, toSvg(e));
+    // Synthetic events carry ids the browser does not know, and capture throws for those.
+    try { svg.setPointerCapture(e.pointerId); } catch { /* the drag still tracks inside the svg */ }
+  });
+  svg.addEventListener('pointermove', (e) => {
+    const prev = last.get(e.pointerId);
+    if (!prev) return;
+    const next = toSvg(e);
+    last.set(e.pointerId, next);
+    crossings(prev, next).forEach((c) => pluck(c.row, c.fret, cellAt(c.x, cells)));
+  });
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
 
   const strings = Array.from({ length: STRING_COUNT }, (_, row) => buildString(stringLayer, row, cells));
   let kb = { row: 0, frets: new Array(STRING_COUNT).fill(0) };

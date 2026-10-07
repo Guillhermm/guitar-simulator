@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   hitCells, wireXs, quadFor, gapAt, stringY, rowEdgeY, NUT_X, SADDLE_X, HIT_LEFT_X, NUT_GAP, CENTER_Y,
   rowToString, stringLabel, fretText, reduceKey, displacement, isSettled, amplitudeFor, isWound,
-  segmentStart, bodyPath, boardPath, boardHalfWidth, headstockPath, rollerFor, tieHole,
+  segmentStart, crossings, cellAt, bodyPath, boardPath, boardHalfWidth, headstockPath, rollerFor, tieHole,
 } from '../src/guitar.js';
 
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
@@ -197,4 +197,52 @@ test('headstock path is closed and each string reaches a roller on its own side'
 test('tie holes sit 14.4 apart behind the saddle', () => {
   [0, 1, 2, 3, 4, 5].forEach((row) => assert.ok(tieHole(row).x > SADDLE_X));
   near(tieHole(1).y - tieHole(0).y, 14.4, 0.01);
+});
+
+test('crossings: a vertical sweep hits all six strings in order, and reversed the other way', () => {
+  const x = 500;
+  const down = crossings({ x, y: stringY(0, x) - 5 }, { x, y: stringY(5, x) + 5 });
+  assert.deepEqual(down.map((c) => c.row), [0, 1, 2, 3, 4, 5]);
+  down.forEach((c) => { near(c.y, stringY(c.row, x)); near(c.x, x); });
+  const up = crossings({ x, y: stringY(5, x) + 5 }, { x, y: stringY(0, x) - 5 });
+  assert.deepEqual(up.map((c) => c.row), [5, 4, 3, 2, 1, 0]);
+});
+
+test('crossings: a move along one string crosses nothing', () => {
+  const y = stringY(2, 400) + 1;
+  assert.deepEqual(crossings({ x: 300, y: stringY(2, 300) + 1 }, { x: 700, y: stringY(2, 700) + 1 }), []);
+  assert.deepEqual(crossings({ x: 400, y }, { x: 400, y }), []);
+});
+
+test('crossings: ending exactly on a line triggers once, not again on the next move', () => {
+  const x = 500;
+  const first = crossings({ x, y: stringY(2, x) - 3 }, { x, y: stringY(2, x) });
+  assert.deepEqual(first.map((c) => c.row), [2]);
+  assert.deepEqual(crossings({ x, y: stringY(2, x) }, { x, y: stringY(2, x) + 3 }), []);
+  assert.deepEqual(crossings({ x, y: stringY(2, x) }, { x, y: stringY(2, x) - 3 }), []);
+});
+
+test('crossings: a fast diagonal over the body gives open strings in order', () => {
+  const x0 = SADDLE_X - 150;
+  const hits = crossings({ x: x0, y: stringY(0, x0) - 10 }, { x: SADDLE_X - 20, y: stringY(5, SADDLE_X - 20) + 10 });
+  assert.deepEqual(hits.map((c) => c.row), [0, 1, 2, 3, 4, 5]);
+  hits.forEach((c) => assert.equal(c.fret, 0));
+  hits.forEach((c, i) => i && assert.ok(c.x > hits[i - 1].x));
+});
+
+test('crossings: left of the nut is fret 0, and fret follows the cell under the crossing', () => {
+  const left = crossings({ x: 220, y: CENTER_Y - 40 }, { x: 220, y: CENTER_Y + 40 });
+  assert.equal(left.length, 6);
+  left.forEach((c) => assert.equal(c.fret, 0));
+  const wires = wireXs();
+  const x = (wires[4] + wires[5]) / 2;
+  const [hit] = crossings({ x, y: stringY(1, x) - 4 }, { x, y: stringY(1, x) + 4 });
+  assert.equal(hit.fret, 6);
+  assert.equal(cellAt(x).fret, 6);
+});
+
+test('crossings: a move that cuts the nut corner crosses each string once', () => {
+  const hits = crossings({ x: NUT_X - 40, y: stringY(0, NUT_X) - 6 }, { x: NUT_X + 200, y: stringY(5, NUT_X + 200) + 6 });
+  assert.equal(new Set(hits.map((c) => c.row)).size, hits.length);
+  assert.ok(hits.length >= 5);
 });

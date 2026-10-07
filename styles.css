@@ -48,7 +48,7 @@ html, body {
   width: min(100vw, calc(90vh * 1240 / 480));
   max-height: 90vh;
   aspect-ratio: 1240 / 480;
-  touch-action: manipulation;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
