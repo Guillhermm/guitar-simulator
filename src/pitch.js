@@ -1,5 +1,5 @@
 export const STRING_COUNT = 6;
-export const FRET_COUNT = 12;
+export const FRET_COUNT = 19;
 export const TUNING = [40, 45, 50, 55, 59, 64];
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

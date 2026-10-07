@@ -1,18 +1,24 @@
 :root {
   --bg: #F1E9DC;
   --text: #2B1B14;
-  --string-plain: #E6E6E0;
+  --string-plain: #ECE8DA;
   --string-plain-hot: #FFFFFF;
-  --string-wound: #C9A66B;
-  --string-wound-hot: #F0D49A;
+  --string-wound: #C9CCD0;
+  --string-wound-hot: #F4F6F8;
   --pearl: #EFE6D0;
   --dark: #120C08;
+  --rim: transparent;
+  --drop-opacity: 0.25;
+  --stage: var(--bg);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #14110E;
     --text: #F1E9DC;
+    --rim: #D9B77E;
+    --drop-opacity: 0.6;
+    --stage: radial-gradient(ellipse at 55% 50%, #3A2E24 0%, #241C16 45%, #14110E 85%);
   }
 }
 
@@ -23,6 +29,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: var(--bg);
+  background: var(--stage);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -38,9 +45,9 @@ html, body {
 
 .guitar {
   display: block;
-  width: min(100vw, calc(90vh * 1200 / 420));
+  width: min(100vw, calc(90vh * 1240 / 480));
   max-height: 90vh;
-  aspect-ratio: 1200 / 420;
+  aspect-ratio: 1240 / 480;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -64,13 +71,27 @@ html, body {
     position: absolute;
     top: calc(50% - 1.5rem);
     left: 50%;
-    width: min(calc(100dvh - 3rem), calc((100vw - 1rem) / 0.35));
+    width: min(calc(100dvh - 3rem), calc((100vw - 1rem) / 0.387));
     max-height: none;
     transform: translate(-50%, -50%) rotate(90deg);
   }
 }
 
+.rim { stroke: var(--rim); stroke-opacity: 0.55; }
+.drop { opacity: var(--drop-opacity); }
+
 .string { outline: none; }
+
+.string-shadow {
+  stroke: #000;
+  stroke-opacity: 0.18;
+  stroke-linecap: round;
+}
+
+.string-wire {
+  stroke: #8A8F96;
+  stroke-linecap: butt;
+}
 
 .string-line {
   stroke: var(--string-plain);
@@ -78,6 +99,7 @@ html, body {
   transition: stroke 120ms;
 }
 .string-line.wound { stroke: var(--string-wound); }
+.string-line:not(.wound) { stroke-opacity: 0.82; }
 
 .string-ghost {
   fill: none;

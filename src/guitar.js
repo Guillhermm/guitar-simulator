@@ -2,42 +2,59 @@ import { TUNING, FRET_COUNT, STRING_COUNT, noteAt, noteName, fretPositions } fro
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-export const VIEW = { width: 1200, height: 420 };
-export const SCALE_LENGTH = 820;
-export const NUT_X = 130;
-export const BRIDGE_X = 950;
-export const HEADSTOCK_X = 24;
-export const STRING_SPACING = 36;
-export const STRING_CENTER_Y = 210;
-// Row 0 is the high e, drawn on top.
-export const STRING_WIDTHS = [1.2, 1.6, 2.2, 3.0, 3.8, 4.6];
+// 1 mm is 1.2 units. Everything below is measured in millimeters from the nut and converted once.
+const MM = 1.2;
+export const NUT_X = 234;
+export const CENTER_Y = 240;
+export const SCALE_MM = 650;
+export const SADDLE_MM = 652;
+export const SADDLE_X = NUT_X + MM * SADDLE_MM;
+export const HIT_LEFT_X = 205;
+export const NUT_GAP = 10.32;
+const GAP_SLOPE = 3.6 / (SADDLE_X - NUT_X);
+// Nylon trebles on rows 0-2, wound basses on rows 3-5. Row 0 is the high e, drawn on top.
+export const STRING_WIDTHS = [1.2, 1.4, 1.7, 1.7, 2.0, 2.3];
 
 const BASS_ROWS = 3;
 const MIN_AMPLITUDE = 0.1;
 const DECAY_SECONDS = 0.7;
 const VIBRATION_HZ = 14;
 
+const round2 = (v) => +v.toFixed(2);
+export const mmX = (mm) => round2(NUT_X + MM * mm);
+export const mmY = (mm) => round2(CENTER_Y + MM * mm);
+
 export const rowToString = (row) => STRING_COUNT - 1 - row;
 export const isWound = (row) => row >= STRING_COUNT - 3;
-export const stringY = (row) => STRING_CENTER_Y + (row - (STRING_COUNT - 1) / 2) * STRING_SPACING;
-export const wireXs = () => fretPositions(SCALE_LENGTH, FRET_COUNT).map((d) => NUT_X + d);
+export const isBassRow = (row) => row >= BASS_ROWS;
+export const wireXs = () => fretPositions(SCALE_MM, FRET_COUNT).map((mm) => NUT_X + MM * mm);
+
+// The strings fan out from the nut to the saddle, so the gap grows with x. Left of the nut it stays at the nut value.
+export const gapAt = (x) => NUT_GAP + GAP_SLOPE * (Math.max(x, NUT_X) - NUT_X);
+export const stringY = (row, x = NUT_X) => CENTER_Y + (row - (STRING_COUNT - 1) / 2) * gapAt(x);
+// Boundary between row k-1 and row k at x (k = 0 is above the first string, 6 below the last).
+export const rowEdgeY = (k, x) => CENTER_Y + (k - STRING_COUNT / 2) * gapAt(x);
+
+// Quadrilateral for one string between two vertical edges. Neighbors compute the shared edges from the
+// same expression, so adjacent quads match exactly.
+export const quadFor = (row, xa, xb) => [
+  [xa, rowEdgeY(row, xa)],
+  [xb, rowEdgeY(row, xb)],
+  [xb, rowEdgeY(row + 1, xb)],
+  [xa, rowEdgeY(row + 1, xa)],
+];
 
 // Fret 0 is the zone left of the nut, fret n spans the space between wires n-1 and n.
-export const cellBounds = (wires = wireXs(), nutX = NUT_X, headX = HEADSTOCK_X) => {
-  const edges = [headX, nutX, ...wires];
-  return edges.slice(0, -1).map((x, fret) => {
-    const width = edges[fret + 1] - x;
-    return { fret, x, width, cx: x + width / 2 };
+// The last cell is the body zone from the last wire to the saddle, which plays the open string.
+export const hitCells = (wires = wireXs()) => {
+  const edges = [HIT_LEFT_X, NUT_X, ...wires, SADDLE_X];
+  return edges.slice(0, -1).map((xa, i) => {
+    const xb = edges[i + 1];
+    return { fret: i <= FRET_COUNT ? i : 0, xa, xb, cx: (xa + xb) / 2, body: i > FRET_COUNT };
   });
 };
 
-// Over the body, where a player strums, a tap plays the open string.
-export const bodyZone = (wires = wireXs(), bridgeX = BRIDGE_X) => {
-  const x = wires[wires.length - 1];
-  return { fret: 0, x, width: bridgeX - x, cx: (x + bridgeX) / 2 };
-};
-
-// A finger in cell n stops the string at wire n, which leaves wire n to the bridge vibrating.
+// A finger in cell n stops the string at wire n, which leaves wire n to the saddle vibrating.
 export const segmentStart = (fret, wires = wireXs()) => (fret === 0 ? NUT_X : wires[fret - 1]);
 
 export const pitchClass = (midi) => noteName(midi).replace(/-?\d+$/, '');
@@ -46,8 +63,8 @@ export const stringLabel = (row) => `String ${row + 1}, ${pitchClass(TUNING[rowT
 export const fretText = (row, fret) =>
   `Fret ${fret}, note ${pitchClass(noteAt(rowToString(row), fret))}`;
 
-export const isBassRow = (row) => row >= BASS_ROWS;
-export const amplitudeFor = (row) => (isBassRow(row) ? 14 : 10);
+// The control point of the quadratic peaks at the amplitude, so the string's midpoint moves half of it.
+export const amplitudeFor = (row) => (isBassRow(row) ? 9 : 6);
 
 export const envelope = (amplitude, t) => amplitude * Math.exp(-t / DECAY_SECONDS);
 export const displacement = (amplitude, t) =>
@@ -77,6 +94,61 @@ export const reduceKey = ({ row, frets }, key) => {
   }
 };
 
+// Body outline: half-widths in mm from the neck joint, mirrored about the center line.
+const BODY_HALF_WIDTHS = [
+  [325, 31], [338, 70], [360, 103], [395, 127], [428, 136.5], [465, 132], [492, 123], [511, 119],
+  [535, 123], [575, 141], [620, 166], [665, 181], [695, 184], [735, 179], [775, 160], [800, 120],
+  [811, 60], [813, 0],
+];
+
+// Closed Catmull-Rom spline through the outline points, as cubic Bezier segments.
+export const bodyPath = () => {
+  const upper = BODY_HALF_WIDTHS.map(([x, h]) => [x, -h]);
+  const lower = BODY_HALF_WIDTHS.slice(0, -1).reverse().map(([x, h]) => [x, h]);
+  const P = [...upper, ...lower].map(([x, y]) => [mmX(x), mmY(y)]);
+  const n = P.length;
+  const f = (v) => v.toFixed(1);
+  let d = `M ${P[0][0]} ${P[0][1]}`;
+  for (let i = 0; i < n; i += 1) {
+    const p0 = P[(i - 1 + n) % n];
+    const p1 = P[i];
+    const p2 = P[(i + 1) % n];
+    const p3 = P[(i + 2) % n];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C ${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${p2[0]} ${p2[1]}`;
+  }
+  return `${d} Z`;
+};
+
+// Half width of the fretboard in mm at m mm from the nut.
+export const boardHalfWidth = (m) => 26 + (5 * m) / 325.2;
+const BOARD_END_MM = 442;
+
+export const boardPath = () => {
+  const pts = [];
+  for (let m = 0; m <= BOARD_END_MM; m += 2) pts.push(`${mmX(m)} ${mmY(-boardHalfWidth(m))}`);
+  return `M ${mmX(0)} ${mmY(-boardHalfWidth(0))} L ${pts.join(' L ')} L ${mmX(BOARD_END_MM)} ${mmY(boardHalfWidth(BOARD_END_MM))} L ${mmX(0)} ${mmY(boardHalfWidth(0))} Z`;
+};
+
+export const headstockPath = () => {
+  const X = mmX;
+  const Y = mmY;
+  return `M ${X(0)} ${Y(-28)} L ${X(-18)} ${Y(-29)} C ${X(-60)} ${Y(-32)} ${X(-130)} ${Y(-37)} ${X(-158)} ${Y(-39)} Q ${X(-175)} ${Y(-39)} ${X(-175)} ${Y(-22)} Q ${X(-179)} ${Y(0)} ${X(-175)} ${Y(22)} Q ${X(-175)} ${Y(39)} ${X(-158)} ${Y(39)} C ${X(-130)} ${Y(37)} ${X(-60)} ${Y(32)} ${X(-18)} ${Y(29)} L ${X(0)} ${Y(28)} Z`;
+};
+
+// Roller x offsets (mm left of the nut) and the side each row's string winds on.
+const ROLLER_MM = [40, 72, 104];
+const ROLLER_Y_MM = 18.5;
+export const rollerFor = (row) => {
+  const top = row < 3;
+  const idx = top ? row : STRING_COUNT - 1 - row;
+  return { x: mmX(-ROLLER_MM[idx]), y: mmY((top ? -1 : 1) * ROLLER_Y_MM) };
+};
+
+// Where the string ties off at the bridge, 12 mm apart.
+export const tieHole = (row) => ({ x: mmX(662), y: mmY((row - (STRING_COUNT - 1) / 2) * 12) });
+
 const el = (name, attrs = {}, parent) => {
   const node = document.createElementNS(SVG_NS, name);
   Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
@@ -84,111 +156,112 @@ const el = (name, attrs = {}, parent) => {
   return node;
 };
 
-const stop = (parent, offset, color, opacity) =>
-  el('stop', { offset, 'stop-color': color, ...(opacity === undefined ? {} : { 'stop-opacity': opacity }) }, parent);
+const points = (quad) => quad.map(([x, y]) => `${round2(x)},${round2(y)}`).join(' ');
 
-const buildDefs = (svg) => {
+const stop = (parent, offset, color) => el('stop', { offset, 'stop-color': color }, parent);
+
+const buildDefs = (svg, body) => {
   const defs = el('defs', {}, svg);
   const top = el('linearGradient', { id: 'top-grad', x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
-  stop(top, 0, '#E0AE63');
-  stop(top, 0.55, '#CB8D44');
-  stop(top, 1, '#B2702F');
-  const board = el('linearGradient', { id: 'board-grad', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-  stop(board, 0, '#2B1B14');
-  stop(board, 1, '#3A2519');
-  const glow = el('radialGradient', { id: 'body-glow', cx: 0.32, cy: 0.3, r: 0.6 }, defs);
-  stop(glow, 0, '#FFFFFF', 0.16);
-  stop(glow, 1, '#FFFFFF', 0);
-  const rim = el('radialGradient', { id: 'body-rim', cx: 0.5, cy: 0.5, r: 0.62 }, defs);
-  stop(rim, 0.7, '#000000', 0);
-  stop(rim, 1, '#000000', 0.12);
-  const head = el('linearGradient', { id: 'head-grad', x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
-  stop(head, 0, '#8A5328');
-  stop(head, 1, '#6A3A18');
-  const hole = el('radialGradient', { id: 'hole-grad', cx: 0.5, cy: 0.42, r: 0.6 }, defs);
-  stop(hole, 0, '#1C130D');
-  stop(hole, 1, '#050302');
-  const shadow = el('filter', { id: 'soft-shadow', x: '-10%', y: '-15%', width: '125%', height: '135%' }, defs);
-  el('feGaussianBlur', { stdDeviation: 7 }, shadow);
+  stop(top, 0, '#D79B55');
+  stop(top, 1, '#BF8040');
   const clip = el('clipPath', { id: 'body-clip' }, defs);
-  el('path', { d: BODY_PATH }, clip);
+  el('path', { d: body }, clip);
 };
 
-const BODY_PATH =
-  'M 520 104 C 565 104 600 58 690 58 C 770 58 800 120 840 120 C 890 120 925 22 1020 22 ' +
-  'C 1100 22 1140 110 1140 210 C 1140 310 1100 398 1020 398 C 925 398 890 300 840 300 ' +
-  'C 800 300 770 362 690 362 C 600 362 565 316 520 316 Z';
-
-const buildBody = (svg, wires) => {
-  const body = el('g', { class: 'body' }, svg);
-  el('path', { d: BODY_PATH, fill: '#000', 'fill-opacity': 0.28, transform: 'translate(4 9)', filter: 'url(#soft-shadow)' }, body);
-  el('path', { d: BODY_PATH, fill: 'url(#top-grad)', stroke: '#6E3E1B', 'stroke-width': 7, 'stroke-linejoin': 'round' }, body);
-  el('path', { d: BODY_PATH, fill: 'none', stroke: '#E9C98C', 'stroke-width': 1.5, 'stroke-opacity': 0.7, transform: 'translate(0 0)' }, body);
-  el('path', { d: BODY_PATH, fill: 'url(#body-glow)' }, body);
-  el('path', { d: BODY_PATH, fill: 'url(#body-rim)' }, body);
-
-  for (let i = 0; i < 14; i += 1) {
-    const y = 36 + i * 26;
-    el('path', {
-      d: `M 560 ${y} C 700 ${y + 6} 860 ${y - 6} 1120 ${y + 2}`,
-      fill: 'none', stroke: '#6E3E1B', 'stroke-opacity': 0.05 + (i % 3) * 0.015, 'stroke-width': 1, 'clip-path': 'url(#body-clip)',
-    }, body);
+const buildBody = (svg, body) => {
+  const g = el('g', { class: 'body' }, svg);
+  el('path', { d: body, fill: '#000', opacity: 0.25, transform: 'translate(3 6)', class: 'drop' }, g);
+  el('path', { d: body, fill: 'none', 'stroke-width': 5.6, 'stroke-linejoin': 'round', class: 'rim' }, g);
+  el('path', { d: body, fill: 'url(#top-grad)', stroke: '#20150E', 'stroke-width': 3.6 }, g);
+  for (let i = -70; i <= 70; i += 1) {
+    const y = mmY(i * 2.6);
+    el('line', {
+      x1: mmX(325), x2: mmX(815), y1: y, y2: y, stroke: '#7A4A1E', 'stroke-width': 0.8, 'clip-path': 'url(#body-clip)',
+      'stroke-opacity': 0.05 + ((((i * 7) % 5) + 5) % 5) * 0.012,
+    }, g);
   }
+  el('line', { x1: mmX(325), x2: mmX(812), y1: CENTER_Y, y2: CENTER_Y, stroke: '#7A4A1E', 'stroke-opacity': 0.25, 'stroke-width': 0.8 }, g);
 
-  el('circle', { cx: 700, cy: 210, r: 84, fill: 'none', stroke: '#000', 'stroke-opacity': 0.25, 'stroke-width': 6 }, body);
-  el('circle', { cx: 700, cy: 210, r: 82, fill: 'none', stroke: '#3A2616', 'stroke-width': 3 }, body);
-  el('circle', { cx: 700, cy: 210, r: 76, fill: 'none', stroke: '#E8D3A0', 'stroke-width': 3 }, body);
-  el('circle', { cx: 700, cy: 210, r: 70, fill: 'none', stroke: '#3A2616', 'stroke-width': 3 }, body);
-  el('circle', { cx: 700, cy: 210, r: 64, fill: 'url(#hole-grad)' }, body);
+  const cx = mmX(487);
+  const ring = (r, fill) => el('circle', { cx, cy: CENTER_Y, r: r * MM, fill }, g);
+  ring(62, '#1B120C');
+  ring(61, '#E9D8AE');
+  ring(59.5, '#1B120C');
+  el('circle', { cx, cy: CENTER_Y, r: 52.5 * MM, fill: 'none', stroke: '#8E5A2C', 'stroke-width': 12 * MM }, g);
+  el('circle', {
+    cx, cy: CENTER_Y, r: 52.5 * MM, fill: 'none', stroke: '#E9D8AE', 'stroke-width': 6 * MM, 'stroke-dasharray': `${3.2 * MM} ${3.2 * MM}`,
+  }, g);
+  ring(46.5, '#1B120C');
+  ring(45.5, '#E9D8AE');
+  ring(44.5, '#1B120C');
+  ring(43, '#0B0705');
+};
 
-  el('rect', { x: 938, y: 108, width: 50, height: 204, rx: 9, fill: '#1E120B' }, body);
-  el('rect', { x: 945, y: 114, width: 3, height: 192, rx: 1.5, fill: '#F3EBD8', 'fill-opacity': 0.55 }, body);
-  for (let row = 0; row < STRING_COUNT; row += 1) {
-    el('circle', { cx: 970, cy: stringY(row), r: 3.2, fill: '#F3EBD8', 'fill-opacity': 0.85 }, body);
-  }
-
-  const neck = el('g', { class: 'neck' }, svg);
-  el('rect', { x: NUT_X + 3, y: 112, width: 464, height: 204, fill: '#000', 'fill-opacity': 0.16, filter: 'url(#soft-shadow)' }, neck);
-  el('rect', { x: NUT_X, y: 102, width: 460, height: 216, fill: '#7A4620' }, neck);
-  el('rect', { x: NUT_X, y: 108, width: 460, height: 204, fill: 'url(#board-grad)' }, neck);
-  el('rect', { x: NUT_X, y: 102, width: 460, height: 1.5, fill: '#FFFFFF', 'fill-opacity': 0.15 }, neck);
-  for (let i = 0; i < 10; i += 1) {
-    const y = 114 + i * (192 / 9);
-    const wobble = 2 + (i % 3);
-    const opacity = 0.06 + (i % 5) * 0.01;
-    el('path', {
-      d: `M ${NUT_X} ${y} C 250 ${y + wobble} 400 ${y - wobble} 590 ${y + (i % 2 ? 1 : -1)}`,
-      fill: 'none', stroke: '#000', 'stroke-opacity': opacity, 'stroke-width': 1,
-    }, neck);
-  }
-  wires.forEach((x) => el('rect', { x: x - 1, y: 108, width: 2, height: 204, fill: '#C9C6BE' }, neck));
-
-  const mid = (n) => (n === 1 ? (NUT_X + wires[0]) / 2 : (wires[n - 2] + wires[n - 1]) / 2);
-  [3, 5, 7, 9].forEach((n) => el('circle', { cx: mid(n), cy: STRING_CENTER_Y, r: 6, fill: '#EFE6D0' }, neck));
-  [174, 246].forEach((y) => el('circle', { cx: mid(12), cy: y, r: 6, fill: '#EFE6D0' }, neck));
-
-  el('rect', { x: NUT_X - 4, y: 106, width: 6, height: 208, rx: 1, fill: '#F3EBD8' }, neck);
-
-  const head = el('g', { class: 'headstock' }, svg);
-  [48, 80, 112].forEach((x) => {
-    el('rect', { x: x - 2, y: 82, width: 4, height: 14, fill: '#9A9A94' }, head);
-    el('rect', { x: x - 6, y: 70, width: 12, height: 14, rx: 4, fill: '#8C8A84' }, head);
-    el('rect', { x: x - 2, y: 324, width: 4, height: 14, fill: '#9A9A94' }, head);
-    el('rect', { x: x - 6, y: 336, width: 12, height: 14, rx: 4, fill: '#8C8A84' }, head);
-  });
+const buildNeck = (svg, wires) => {
+  const g = el('g', { class: 'neck' }, svg);
   el('path', {
-    d: `M ${HEADSTOCK_X + 8} 92 L ${NUT_X - 4} 104 L ${NUT_X - 4} 316 L ${HEADSTOCK_X + 8} 328 Q ${HEADSTOCK_X} 328 ${HEADSTOCK_X} 318 L ${HEADSTOCK_X} 102 Q ${HEADSTOCK_X} 92 ${HEADSTOCK_X + 8} 92 Z`,
-    fill: 'url(#head-grad)',
-  }, head);
+    d: `M ${mmX(0)} ${mmY(-27.5)} L ${mmX(325)} ${mmY(-32.5)} L ${mmX(325)} ${mmY(32.5)} L ${mmX(0)} ${mmY(27.5)} Z`,
+    fill: '#7A4424',
+  }, g);
+  const board = boardPath();
+  el('path', { d: board, fill: '#000', opacity: 0.28, transform: 'translate(1.5 3)' }, g);
+  el('path', { d: board, fill: '#241A14' }, g);
+
+  const wireMm = wires.map((x) => (x - NUT_X) / MM);
+  wires.forEach((x, i) => el('line', {
+    x1: round2(x), x2: round2(x), y1: mmY(-boardHalfWidth(wireMm[i])), y2: mmY(boardHalfWidth(wireMm[i])), stroke: '#CFCBC0', 'stroke-width': 2.5,
+  }, g));
+
+  // Side dots sit on the treble edge of the board, at the middle of the fret space.
+  [3, 5, 7, 9, 12, 15, 17, 19].forEach((fret) => {
+    const lo = wireMm[fret - 2] ?? 0;
+    const mid = lo + (wireMm[fret - 1] - lo) / 2;
+    const offsets = fret === 12 ? [-2, 2] : [0];
+    offsets.forEach((dx) => el('circle', { cx: mmX(mid + dx), cy: mmY(boardHalfWidth(mid)), r: 1.6, fill: '#EFE6D0', opacity: 0.8 }, g));
+  });
+
+  el('rect', { x: mmX(-1.5), y: mmY(-boardHalfWidth(0)), width: 3 * MM, height: 2 * boardHalfWidth(0) * MM, fill: '#F3EBD8' }, g);
+};
+
+const buildBridge = (svg) => {
+  const g = el('g', { class: 'bridge' }, svg);
+  el('rect', { x: mmX(640), y: mmY(-92.5), width: 28 * MM, height: 185 * MM, rx: 5 * MM, fill: '#3B2016' }, g);
+  el('rect', { x: mmX(650.5), y: mmY(-40), width: 3 * MM, height: 80 * MM, fill: '#EDE6D2' }, g);
   for (let row = 0; row < STRING_COUNT; row += 1) {
-    el('circle', { cx: 60, cy: stringY(row), r: 5, fill: '#C9C6BE' }, head);
+    const hole = tieHole(row);
+    el('circle', { cx: hole.x, cy: hole.y, r: 1.6 * MM, fill: '#0B0705' }, g);
   }
 };
+
+const buildHeadstock = (svg) => {
+  const g = el('g', { class: 'headstock' }, svg);
+  const path = headstockPath();
+  el('path', { d: path, fill: '#000', opacity: 0.25, transform: 'translate(2 4)', class: 'drop' }, g);
+  el('path', { d: path, fill: '#4A2619', 'stroke-width': 1.2, class: 'rim' }, g);
+  [-1, 1].forEach((s) => {
+    const cy = s * ROLLER_Y_MM;
+    el('rect', { x: mmX(-120), y: mmY(cy - 8.5), width: 101 * MM, height: 17 * MM, rx: 8.5 * MM, fill: '#120D0A' }, g);
+  });
+  [-1, 1].forEach((s) => {
+    ROLLER_MM.forEach((d) => {
+      const cy = s * ROLLER_Y_MM;
+      el('rect', { x: mmX(-d) - 4.5 * MM, y: mmY(cy - 9.5), width: 9 * MM, height: 19 * MM, rx: 2, fill: '#D8D6CE' }, g);
+      el('rect', { x: mmX(-d) - 5 * MM, y: mmY(s * 34 - 3), width: 10 * MM, height: 6 * MM, fill: '#B9B7AE' }, g);
+      el('ellipse', {
+        cx: mmX(-d), cy: mmY(s * 42), rx: 5.5 * MM, ry: 8 * MM, fill: '#EAE3D0', stroke: '#9C9684', 'stroke-width': 0.8,
+      }, g);
+    });
+  });
+};
+
+const lineAttrs = (a, b) => ({ x1: round2(a.x), y1: round2(a.y), x2: round2(b.x), y2: round2(b.y) });
+const at = (row, x) => ({ x, y: stringY(row, x) });
 
 const buildString = (layer, row, cells) => {
-  const y = stringY(row);
   const wound = isWound(row);
   const cls = wound ? ' wound' : '';
+  const width = STRING_WIDTHS[row];
   const g = el('g', {
     class: 'string',
     tabindex: 0,
@@ -201,25 +274,37 @@ const buildString = (layer, row, cells) => {
     'aria-valuetext': fretText(row, 0),
   }, layer);
 
-  el('rect', { class: 'focus-halo', x: 40, y: y - 15, width: BRIDGE_X + 20 - 40, height: 30, rx: 8, 'stroke-width': 5 }, g);
-  el('rect', { class: 'focus-ring', x: 40, y: y - 15, width: BRIDGE_X + 20 - 40, height: 30, rx: 8, 'stroke-width': 2 }, g);
+  const focus = points(quadFor(row, HIT_LEFT_X, SADDLE_X));
+  el('polygon', { class: 'focus-halo', points: focus, 'stroke-width': 5 }, g);
+  el('polygon', { class: 'focus-ring', points: focus, 'stroke-width': 2 }, g);
 
-  const line = el('line', { class: `string-line${cls}`, x1: 60, y1: y, x2: BRIDGE_X, y2: y, 'stroke-width': STRING_WIDTHS[row] }, g);
-  const ghost = el('path', { class: `string-ghost${cls}`, 'stroke-width': STRING_WIDTHS[row] }, g);
-  const live = el('path', { class: `string-live${cls}`, 'stroke-width': STRING_WIDTHS[row] }, g);
-  const hoverDot = el('circle', { class: 'hover-dot', cx: cells[0].cx, cy: y, r: 9 }, g);
-  const pressDot = el('circle', { class: 'press-dot', cx: cells[0].cx, cy: y, r: 9 }, g);
-  const keyDot = el('circle', { class: 'key-dot', cx: cells[0].cx, cy: y, r: 9 }, g);
+  const nut = at(row, NUT_X);
+  const saddle = at(row, SADDLE_X);
+  const attrs = lineAttrs(nut, saddle);
+  const shadow = el('line', { class: 'string-shadow', ...attrs, 'stroke-width': width + 1, transform: 'translate(0 1.4)' }, g);
+  const line = el('line', { class: `string-line${cls}`, ...attrs, 'stroke-width': width }, g);
+  const main = [shadow, line];
+  if (wound) {
+    main.push(el('line', { class: 'string-wire', ...attrs, 'stroke-width': width, 'stroke-dasharray': '0.7 0.9' }, g));
+  }
+  el('line', { class: `string-line${cls}`, ...lineAttrs(saddle, tieHole(row)), 'stroke-width': width }, g);
+  el('line', { class: `string-line${cls}`, ...lineAttrs(nut, rollerFor(row)), 'stroke-width': width }, g);
 
-  return { g, line, ghost, live, hoverDot, pressDot, keyDot, y, row };
+  const ghost = el('path', { class: `string-ghost${cls}`, 'stroke-width': width }, g);
+  const live = el('path', { class: `string-live${cls}`, 'stroke-width': width }, g);
+  const dot = (name) => el('circle', { class: name, cx: cells[0].cx, cy: stringY(row, cells[0].cx), r: 4 }, g);
+
+  return { g, main, ghost, live, hoverDot: dot('hover-dot'), pressDot: dot('press-dot'), keyDot: dot('key-dot'), row, end: saddle };
 };
 
 const createVibrator = (reducedMotion) => {
   const active = new Map();
   let raf = 0;
 
+  const trim = (s, x, y) => s.main.forEach((n) => { n.setAttribute('x2', round2(x)); n.setAttribute('y2', round2(y)); });
+
   const restore = (s) => {
-    s.line.setAttribute('x2', BRIDGE_X);
+    trim(s, s.end.x, s.end.y);
     s.live.style.opacity = 0;
     s.ghost.style.opacity = 0;
   };
@@ -233,9 +318,12 @@ const createVibrator = (reducedMotion) => {
         return;
       }
       const d = displacement(v.amplitude, t);
-      const cx = (v.fromX + BRIDGE_X) / 2;
-      s.live.setAttribute('d', `M ${v.fromX} ${s.y} Q ${cx} ${s.y + d} ${BRIDGE_X} ${s.y}`);
-      s.ghost.setAttribute('d', `M ${v.fromX} ${s.y} Q ${cx} ${s.y - d} ${BRIDGE_X} ${s.y}`);
+      const { from } = v;
+      const cx = (from.x + s.end.x) / 2;
+      const cy = (from.y + s.end.y) / 2;
+      const path = (sign) => `M ${round2(from.x)} ${round2(from.y)} Q ${round2(cx)} ${round2(cy + sign * d)} ${round2(s.end.x)} ${round2(s.end.y)}`;
+      s.live.setAttribute('d', path(1));
+      s.ghost.setAttribute('d', path(-1));
     });
     raf = active.size ? requestAnimationFrame(frame) : 0;
   };
@@ -250,10 +338,11 @@ const createVibrator = (reducedMotion) => {
       flash(s);
       return;
     }
-    s.line.setAttribute('x2', fromX);
+    const from = at(s.row, fromX);
+    trim(s, from.x, from.y);
     s.live.style.opacity = 1;
     s.ghost.style.opacity = 0.4;
-    active.set(s, { start: performance.now(), amplitude: amplitudeFor(s.row), fromX });
+    active.set(s, { start: performance.now(), amplitude: amplitudeFor(s.row), from });
     if (!raf) raf = requestAnimationFrame(frame);
   };
 
@@ -262,12 +351,16 @@ const createVibrator = (reducedMotion) => {
 
 export const buildGuitar = (svg, { player }) => {
   const wires = wireXs();
-  const cells = cellBounds(wires);
+  const cells = hitCells(wires);
   const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const vibrator = createVibrator(reducedMotion);
+  const body = bodyPath();
 
-  buildDefs(svg);
-  buildBody(svg, wires);
+  buildDefs(svg, body);
+  buildBody(svg, body);
+  buildNeck(svg, wires);
+  buildBridge(svg);
+  buildHeadstock(svg);
   const stringLayer = el('g', { class: 'strings' }, svg);
   const hitLayer = el('g', { class: 'hit-layer' }, svg);
 
@@ -277,11 +370,15 @@ export const buildGuitar = (svg, { player }) => {
   const strings = Array.from({ length: STRING_COUNT }, (_, row) => buildString(stringLayer, row, cells));
   let kb = { row: 0, frets: new Array(STRING_COUNT).fill(0) };
 
-  const pluck = (row, fret) => {
+  const moveDot = (dot, row, cell) => {
+    dot.setAttribute('cx', cell.cx);
+    dot.setAttribute('cy', stringY(row, cell.cx));
+  };
+
+  const pluck = (row, fret, cell = cells[fret]) => {
     const s = strings[row];
-    const cell = cells[fret];
     player.play(noteAt(rowToString(row), fret));
-    s.pressDot.setAttribute('cx', cell.cx);
+    moveDot(s.pressDot, row, cell);
     if (s.pressDot.animate) {
       s.pressDot.animate(
         [{ opacity: 0.7, transform: 'scale(0.8)' }, { opacity: 0, transform: 'scale(0.8)' }],
@@ -294,26 +391,24 @@ export const buildGuitar = (svg, { player }) => {
   const showFret = (row) => {
     const s = strings[row];
     const fret = kb.frets[row];
-    s.keyDot.setAttribute('cx', cells[fret].cx);
+    moveDot(s.keyDot, row, cells[fret]);
     s.g.setAttribute('aria-valuenow', fret);
     s.g.setAttribute('aria-valuetext', fretText(row, fret));
   };
 
   strings.forEach((s) => {
-    [...cells, bodyZone(wires)].forEach((cell) => {
-      const rect = el('rect', {
-        class: 'hit', x: cell.x, y: s.y - STRING_SPACING / 2, width: cell.width, height: STRING_SPACING,
-      }, hitLayer);
-      rect.addEventListener('pointerdown', (e) => {
+    cells.forEach((cell) => {
+      const poly = el('polygon', { class: 'hit', points: points(quadFor(s.row, cell.xa, cell.xb)) }, hitLayer);
+      poly.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        pluck(s.row, cell.fret);
+        pluck(s.row, cell.fret, cell);
       });
-      rect.addEventListener('pointerenter', (e) => {
+      poly.addEventListener('pointerenter', (e) => {
         if (e.pointerType !== 'mouse') return;
-        s.hoverDot.setAttribute('cx', cell.cx);
+        moveDot(s.hoverDot, s.row, cell);
         s.g.classList.add('hover');
       });
-      rect.addEventListener('pointerleave', () => s.g.classList.remove('hover'));
+      poly.addEventListener('pointerleave', () => s.g.classList.remove('hover'));
     });
 
     s.g.addEventListener('keydown', (e) => {

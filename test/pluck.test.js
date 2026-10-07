@@ -42,10 +42,11 @@ const estimatePeriod = (x, expected, k) => {
   return (best + offset) / k;
 };
 
-test('every one of the 78 notes is within 5 cents', () => {
+test('every one of the 120 notes is within 5 cents', (t) => {
   let count = 0;
+  let worst = 0;
   for (let s = 0; s < TUNING.length; s++) {
-    for (let fret = 0; fret <= 12; fret++) {
+    for (let fret = 0; fret <= 19; fret++) {
       const midi = noteAt(s, fret);
       const frequency = midiToHz(midi);
       const expected = SAMPLE_RATE / frequency;
@@ -53,11 +54,13 @@ test('every one of the 78 notes is within 5 cents', () => {
       const k = Math.max(1, Math.floor(1500 / expected));
       const measured = estimatePeriod(samples, expected, k);
       const cents = Math.abs(1200 * Math.log2(expected / measured));
+      worst = Math.max(worst, cents);
       assert.ok(cents < 5, `midi ${midi}: ${cents.toFixed(2)} cents off`);
       count++;
     }
   }
-  assert.equal(count, 78);
+  assert.equal(count, 120);
+  t.diagnostic(`worst pitch error: ${worst.toFixed(3)} cents`);
 });
 
 test('output is finite, bounded to +-1 and not silent', () => {

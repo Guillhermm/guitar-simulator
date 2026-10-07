@@ -1,6 +1,6 @@
 # Guitar Simulator
 
-An acoustic guitar you play in the browser. Six strings in standard tuning (E2 A2 D3 G3 B3 E4), open plus twelve frets, with frets spaced by twelve-tone equal temperament.
+A classical guitar you play in the browser. Six strings in standard tuning (E2 A2 D3 G3 B3 E4), open plus nineteen frets on a 650 mm scale, with frets spaced by twelve-tone equal temperament. The drawing follows real classical-guitar proportions: a tapering fretboard, strings that fan out from the nut to the saddle, a slotted headstock with rollers, a tie-block bridge and a rosette around the sound hole.
 
 ## Run it
 
@@ -12,7 +12,7 @@ Then open <http://127.0.0.1:8000>. ES modules do not load from `file://`, so a l
 
 ## Play it
 
-- Click or tap a string between two fret wires to play that fret; left of the nut plays it open.
+- Click or tap a string between two fret wires to play that fret; left of the nut, or on the body past fret 19, plays it open. Hit areas follow the fanned strings.
 - Keyboard: Tab or Up/Down picks a string, Left/Right/Home/End picks a fret, Space or Enter plucks.
 
 ## How the sound is made

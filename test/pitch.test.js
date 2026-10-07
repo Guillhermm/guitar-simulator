@@ -17,13 +17,14 @@ test('standard tuning, low E to high E', () => {
 test('noteAt adds the fret to the open string', () => {
   assert.equal(noteAt(0, 0), 40);
   assert.equal(noteAt(5, 12), 76);
+  assert.equal(noteAt(5, 19), 83);
   assert.equal(noteAt(2, 5), noteAt(3, 0));
 });
 
 test('noteAt rejects out-of-range input', () => {
   assert.throws(() => noteAt(6, 0), RangeError);
   assert.throws(() => noteAt(-1, 0), RangeError);
-  assert.throws(() => noteAt(0, 13), RangeError);
+  assert.throws(() => noteAt(0, 20), RangeError);
   assert.throws(() => noteAt(0, 1.5), RangeError);
 });
 
