@@ -8,9 +8,9 @@ A classical guitar you play in the browser. Six strings in standard tuning (E2 A
 npm run serve
 ```
 
-Then open <http://127.0.0.1:8000>. ES modules do not load from `file://`, so a local server is needed. There is no build step and there are no dependencies: the browser loads `index.html`, `styles.css` and `src/` as they are.
+Then open <http://127.0.0.1:8417>. ES modules do not load from `file://`, so a local server is needed. There is no build step and there are no dependencies: the browser loads `index.html`, `styles.css` and `src/` as they are.
 
-`tools/serve.py` is `python3 -m http.server` plus `Cache-Control: no-cache`. Without that header a browser keeps reusing modules it fetched earlier, and an edited file only shows up after a hard reload. Versioning the module URLs in `index.html` would not help: `src/main.js?v=2` still imports `./audio.js` unversioned, and an import map would need an inline script that the Content Security Policy blocks.
+`tools/serve.py` is `python3 -m http.server` plus `Cache-Control: no-store`. Without it a browser keeps reusing modules it fetched earlier, so an edited file only shows up after a hard reload, and a module another project cached under the same origin can load instead. The port, 8417, is this project's own for the same reason: the other projects serve on 8000 with the same paths (`/src/main.js`). Versioning the module URLs in `index.html` would not help: `src/main.js?v=2` still imports `./audio.js` unversioned, and an import map would need an inline script that the Content Security Policy blocks.
 
 ## Play it
 

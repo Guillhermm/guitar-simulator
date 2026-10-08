@@ -6,6 +6,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "serve": "python3 tools/serve.py 8000"
+    "serve": "python3 tools/serve.py 8417"
   }
 }
