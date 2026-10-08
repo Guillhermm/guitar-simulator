@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { caretCell, cellOffset, lineStarts, statusFor, stepLookup, takeDue } from '../src/tab-panel.js';
+import {
+  blockOffsets, caretCell, cellOffset, clearDocument, clearedText, cueAfterRun, cueStep, gridCueStep, lineStarts,
+  startStep, statusFor, stepLookup, stepToCell, takeDue,
+} from '../src/tab-panel.js';
 import { parseTab, emptyTab } from '../src/tab.js';
 import { planNotes } from '../src/scheduler.js';
 
@@ -103,4 +106,79 @@ test('takeDue with stepLookup: the panel loop on real specs from the scheduler',
   const r = takeDue(specs, 10.8, lookup.eventFor, null);
   assert.equal(r.due.length, 3);
   assert.equal(r.playhead, tab.events[1]);
+});
+
+const withLyrics = ['intro', ...emptyTab(4).split('\n'), 'verse line', '', 'chorus', ...emptyTab(6).split('\n'), 'outro'].join('\n');
+const lyricParsed = parseTab(withLyrics);
+const lyricStarts = lineStarts(withLyrics);
+
+test('blockOffsets accumulates block widths', () => {
+  assert.deepEqual(blockOffsets(lyricParsed), [0, 4]);
+});
+
+test('cueStep inside a block is block offset plus column', () => {
+  assert.equal(cueStep(lyricParsed, withLyrics, lyricStarts[12] + lyricParsed.blocks[1].bodyStart[0] + 3), 4 + 3);
+});
+
+test('cueStep on a lyric line between blocks is the start of the next block', () => {
+  assert.equal(cueStep(lyricParsed, withLyrics, lyricStarts[7] + 2), 4);
+  assert.equal(cueStep(lyricParsed, withLyrics, lyricStarts[8]), 4);
+  assert.equal(cueStep(lyricParsed, withLyrics, lyricStarts[9] + 1), 4);
+});
+
+test('cueStep before every block is step 0, and so is a caret after the last block', () => {
+  assert.equal(cueStep(lyricParsed, withLyrics, 2), 0);
+  assert.equal(cueStep(lyricParsed, withLyrics, withLyrics.length), 0);
+});
+
+test('cueStep with no tab at all is step 0', () => {
+  assert.equal(cueStep(parseTab('hello'), 'hello', 3), 0);
+});
+
+test('gridCueStep adds the block offset', () => {
+  assert.equal(gridCueStep(lyricParsed, { block: 1, row: 2, col: 5 }), 9);
+});
+
+test('stepToCell inverts blockOffsets and clamps', () => {
+  assert.deepEqual(stepToCell(lyricParsed, 0), { block: 0, col: 0 });
+  assert.deepEqual(stepToCell(lyricParsed, 3), { block: 0, col: 3 });
+  assert.deepEqual(stepToCell(lyricParsed, 4), { block: 1, col: 0 });
+  assert.deepEqual(stepToCell(lyricParsed, 99), { block: 1, col: 5 });
+  assert.equal(stepToCell(parseTab('hello'), 0), null);
+});
+
+test('startStep keeps a cue that has notes at or after it and rewinds one that has none', () => {
+  const p = parseTab('e|-3---5-|\nB|--------|\nG|--------|\nD|--------|\nA|--------|\nE|--------|');
+  assert.deepEqual(p.events.map((e) => e.step), [1, 5]);
+  assert.equal(startStep(p, 5), 5);
+  assert.equal(startStep(p, 6), 0);
+});
+
+test('cueAfterRun keeps the stopped step, leaves the cue alone before any note, and rewinds at the end', () => {
+  assert.equal(cueAfterRun('stop', { step: 12 }), 12);
+  assert.equal(cueAfterRun('stop', null), null);
+  assert.equal(cueAfterRun('end', { step: 12 }), 0);
+});
+
+test('a stop step maps back to the caret offset of its column', () => {
+  const cell = stepToCell(lyricParsed, 6);
+  const offset = cellOffset(lyricParsed, withLyrics, { ...cell, row: 0 });
+  assert.equal(cueStep(lyricParsed, withLyrics, offset), 6);
+});
+
+test('clearDocument keeps the tempo line, and returns the previous text for Undo', () => {
+  const text = `Tempo: 120\n${emptyTab(4)}\nTempo: 90`;
+  const result = clearDocument(text);
+  assert.equal(result.text, `Tempo: 120\n${emptyTab()}`);
+  assert.equal(result.previous, text);
+  assert.equal(parseTab(result.text).tempo, 120);
+});
+
+test('clearDocument without a tempo line writes none', () => {
+  assert.equal(clearDocument(`${emptyTab(4)}\nla la`).text, emptyTab());
+});
+
+test('clearDocument is null for a document that is already an empty tab', () => {
+  assert.equal(clearDocument(emptyTab()), null);
+  assert.equal(clearDocument(clearedText('Tempo: 100\ne|-3-|')), null);
 });

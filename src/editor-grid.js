@@ -1,4 +1,5 @@
 import { parseTab, setFret, appendBlock, landedCol, digitCount } from './tab.js';
+import { gridCueStep, stepToCell } from './tab-panel.js';
 
 export const STRING_LABELS = ['e', 'B', 'G', 'D', 'A', 'E'];
 export const ENTRY_WINDOW_MS = 600;
@@ -277,9 +278,22 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     advance(focus, fret === null ? 1 : digitCount(fret));
   };
 
+  const getCue = () => gridCueStep(parsed, cursor);
+
+  const setCue = (step) => {
+    const target = stepToCell(parsed, step);
+    if (!target) return;
+    flush();
+    setCursor({ ...target, row: cursor.row });
+    const node = cellAt(cursor);
+    if (node) grid.scrollLeft = Math.max(0, node.offsetLeft - PLAYHEAD_FRACTION * grid.clientWidth);
+  };
+
   refresh();
 
   return {
+    getCue,
+    setCue,
     setPlayhead,
     writeFret,
     update: refresh,

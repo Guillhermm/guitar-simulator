@@ -1,5 +1,5 @@
 import { parseTab, setFret, appendBlock, landedCol } from './tab.js';
-import { caretCell, cellOffset } from './tab-panel.js';
+import { caretCell, cellOffset, cueStep, stepToCell } from './tab-panel.js';
 
 const ROWS_IN_BLOCK = 6;
 const PLAYHEAD_FRACTION = 0.3;
@@ -100,5 +100,19 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     area.setSelectionRange(at, at);
   };
 
-  return { setPlayhead, writeFret, update, focus: () => area.focus() };
+  const getCue = () => cueStep(parsedNow(), area.value, area.selectionStart);
+
+  const setCue = (step) => {
+    const parsed = parsedNow();
+    const target = stepToCell(parsed, step);
+    if (!target) return;
+    const current = caretCell(parsed, area.value, area.selectionStart);
+    const row = current?.inside ? current.row : 0;
+    const offset = cellOffset(parsed, area.value, { ...target, row });
+    area.setSelectionRange(offset, offset);
+    const info = parsed.blocks[target.block];
+    scrollTo(info.bodyStart[row] + target.col, info.lines[0]);
+  };
+
+  return { setPlayhead, writeFret, update, getCue, setCue, focus: () => area.focus() };
 };

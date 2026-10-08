@@ -1,9 +1,10 @@
-import { parseTab, withTempo } from './tab.js';
+import { parseTab, withTempo, emptyTab } from './tab.js';
 import { createScheduler } from './scheduler.js';
 import { KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, save } from './storage.js';
 import { exportFile, readImportedFile } from './files.js';
 
 const SAVE_DELAY_MS = 300;
+const UNDO_MS = 8000;
 
 export const lineStarts = (text) => {
   const starts = [0];
@@ -41,6 +42,56 @@ export const cellOffset = (parsed, text, { block, row, col }) => {
   return lineStarts(text)[info.lines[row]] + info.bodyStart[row] + col;
 };
 
+export const blockOffsets = (parsed) => {
+  let offset = 0;
+  return parsed.blocks.map((b) => { const at = offset; offset += b.width; return at; });
+};
+
+// The step Play starts from. A caret on a tab line is its column; on any other line it is the first
+// block below; with no block below (or no tab at all) it is the very start.
+export const cueStep = (parsed, text, caret) => {
+  const cell = caretCell(parsed, text, caret);
+  if (!cell) return 0;
+  const offsets = blockOffsets(parsed);
+  if (cell.inside) return offsets[cell.block] + cell.col;
+  const line = lineOf(lineStarts(text), caret);
+  const next = parsed.blocks.findIndex((b) => b.lines[0] > line);
+  return next < 0 ? 0 : offsets[next];
+};
+
+export const gridCueStep = (parsed, { block, col }) => (blockOffsets(parsed)[block] ?? 0) + col;
+
+// Inverse of the above: the block and column a global step falls in.
+export const stepToCell = (parsed, step) => {
+  if (parsed.blocks.length === 0) return null;
+  const offsets = blockOffsets(parsed);
+  let block = 0;
+  offsets.forEach((at, i) => { if (at <= step) block = i; });
+  return { block, col: clamp(step - offsets[block], 0, parsed.blocks[block].width - 1) };
+};
+
+// A cue past the last note would play nothing, so it falls back to the start.
+export const startStep = (parsed, cue) => (parsed.events.some((e) => e.step >= cue) ? cue : 0);
+
+// Where the cue goes when a run ends: a stop keeps the step that was sounding (null while nothing
+// has sounded yet, so the cue stays), the end of the song rewinds.
+export const cueAfterRun = (reason, shown) => {
+  if (reason === 'end') return 0;
+  return shown ? shown.step : null;
+};
+
+// The text a Clear leaves: an empty tab that keeps the tempo line only if the document had one.
+export const clearedText = (text) => {
+  const tempo = parseTab(text).tempo;
+  return tempo ? withTempo(emptyTab(), tempo) : emptyTab();
+};
+
+// null when there is nothing to clear; otherwise the new text and the one Undo restores.
+export const clearDocument = (text) => {
+  const next = clearedText(text);
+  return next === text ? null : { text: next, previous: text };
+};
+
 const make = (tag, className, parent, text) => {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -53,6 +104,19 @@ const button = (label, parent, className = 'btn') => {
   const node = make('button', className, parent, label);
   node.type = 'button';
   return node;
+};
+
+// An SVG rather than the U+23EE glyph, which some platforms draw as a color emoji.
+const backIcon = () => {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', 'M3 3h2v10H3zM14 3v10L6 8z');
+  svg.append(path);
+  return svg;
 };
 
 // Specs carry audio times, not steps. The first spec due belongs to the first event, and every other
@@ -106,6 +170,8 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   let saveTimer = null;
   let lastFocus = null;
   let message = '';
+  let undoText = null;
+  let undoTimer = null;
 
   const transport = make('div', 'transport', dock);
   const sheet = make('div', 'sheet', dock);
@@ -117,6 +183,10 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
 
   const play = button('Play', transport, 'btn btn-play');
   play.setAttribute('aria-describedby', status.id);
+  const back = button('', transport, 'btn btn-back');
+  back.append(backIcon());
+  back.setAttribute('aria-label', 'Back to start');
+  back.title = 'Back to start';
   const tempoLabel = make('label', 'tempo', transport);
   const tempo = make('input', 'tempo-input', tempoLabel);
   tempo.type = 'number';
@@ -128,8 +198,10 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   tempoLabel.htmlFor = tempo.id;
   tempo.setAttribute('aria-label', 'Tempo in beats per minute');
   make('span', 'tempo-unit', tempoLabel, 'BPM');
-  const open = button('Open', transport);
-  const saveButton = button('Save', transport);
+  const tools = make('div', 'tools', transport);
+  const open = button('Open', tools);
+  const saveButton = button('Save', tools);
+  const clearButton = button('Clear', tools, 'btn btn-clear');
   const toggle = button('Tab', transport, 'btn btn-sheet');
   toggle.setAttribute('aria-controls', sheet.id);
   toggle.setAttribute('aria-expanded', 'false');
@@ -151,21 +223,35 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     saveTimer = setTimeout(persist, SAVE_DELAY_MS);
   };
 
+  const undoButton = button('Undo', status, 'btn btn-undo');
+  undoButton.remove();
+
+  const dropUndo = () => {
+    clearTimeout(undoTimer);
+    undoText = null;
+    if (document.activeElement === undoButton) editor.focus();
+  };
+
   const editor = createEditor(editorBox, {
     getText: () => text,
-    setText: (next) => { text = next; message = ''; persistSoon(); refresh(); },
+    setText: (next) => { text = next; message = ''; dropUndo(); persistSoon(); refresh(); },
     onCursor: () => {},
   });
 
   const refresh = () => {
     const parsed = parseTab(text);
     const note = message || statusFor(parsed);
-    status.textContent = note;
+    status.replaceChildren();
+    if (note) make('span', null, status, note);
+    if (undoText !== null) status.append(undoButton);
+    clearButton.disabled = clearDocument(text) === null;
     play.disabled = !playing && parsed.events.length === 0;
     if (document.activeElement !== tempo) tempo.value = parsed.tempo || DEFAULT_TEMPO;
   };
 
-  const finish = () => {
+  const finish = (reason = 'stop') => {
+    const at = cueAfterRun(reason, shown);
+    if (at !== null) editor.setCue(at);
     cancelAnimationFrame(frame);
     queue = [];
     steps = null;
@@ -185,7 +271,7 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
       shown = playhead;
       editor.setPlayhead(playhead);
     }
-    if (ending && queue.length === 0) finish();
+    if (ending && queue.length === 0) finish('end');
     else frame = requestAnimationFrame(tick);
   };
 
@@ -213,9 +299,11 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     queue = [];
     shown = null;
     const bpm = clamp(Number(tempo.value) || parsed.tempo || DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO);
-    steps = stepLookup(parsed.events, bpm);
+    const from = startStep(parsed, editor.getCue());
+    const playable = parsed.events.filter((e) => e.step >= from);
+    steps = stepLookup(playable, bpm);
     play.textContent = 'Stop';
-    scheduler.start(parsed.events, bpm, 0);
+    scheduler.start(playable, bpm, from);
     frame = requestAnimationFrame(tick);
   };
 
@@ -223,17 +311,69 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     if (playing) stop();
     text = next;
     message = '';
+    dropUndo();
     editor.update();
+    editor.setCue(0);
     persist();
     refresh();
   };
 
+  const backToStart = () => {
+    const wasPlaying = playing;
+    if (wasPlaying) {
+      scheduler.stop();
+      player.silence();
+      finish('none');
+    }
+    editor.setCue(0);
+    if (wasPlaying) start();
+  };
+
+  const clearAll = () => {
+    const cleared = clearDocument(text);
+    if (!cleared) return;
+    const fromButton = document.activeElement === clearButton;
+    if (playing) stop();
+    dropUndo();
+    text = cleared.text;
+    undoText = cleared.previous;
+    message = 'Tab cleared.';
+    undoTimer = setTimeout(() => {
+      dropUndo();
+      message = '';
+      refresh();
+    }, UNDO_MS);
+    editor.update();
+    editor.setCue(0);
+    persist();
+    refresh();
+    if (fromButton) undoButton.focus();
+  };
+
+  undoButton.addEventListener('click', () => {
+    if (undoText === null) return;
+    text = undoText;
+    message = '';
+    dropUndo();
+    editor.update();
+    editor.setCue(0);
+    persist();
+    refresh();
+  });
+
+  [play, back, clearButton, undoButton].forEach((b) => {
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+  });
+  back.addEventListener('click', backToStart);
+  clearButton.addEventListener('click', clearAll);
   play.addEventListener('click', () => (playing ? stop() : start()));
 
   tempo.addEventListener('change', () => {
     const bpm = Math.round(Number(tempo.value));
     if (Number.isFinite(bpm)) {
       text = withTempo(text, clamp(bpm, MIN_TEMPO, MAX_TEMPO));
+      message = '';
+      dropUndo();
       editor.update();
       persistSoon();
     }
@@ -282,6 +422,9 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !play.disabled) {
       e.preventDefault();
       if (playing) stop(); else start();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
+      e.preventDefault();
+      backToStart();
     } else if (e.key === 'Escape' && dock.classList.contains('open')) {
       setSheet(false);
       toggle.focus();
