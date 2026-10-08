@@ -1,3 +1,4 @@
+import { HARMONIC_SEMITONES } from './tab.js';
 import { TUNING, FRET_COUNT, STRING_COUNT, noteAt, noteName, fretPositions } from './pitch.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -19,6 +20,11 @@ const BASS_ROWS = 3;
 const MIN_AMPLITUDE = 0.1;
 const DECAY_SECONDS = 0.7;
 const VIBRATION_HZ = 14;
+const BEND_MM_PER_SEMITONE = 1.5;
+const MUTED_SCALE = 0.5;
+const MUTED_DECAY = 0.07;
+const PALM_SCALE = 0.6;
+const PALM_DECAY = 0.2;
 
 const round2 = (v) => +v.toFixed(2);
 export const mmX = (mm) => round2(NUT_X + MM * mm);
@@ -96,12 +102,36 @@ export const fretText = (row, fret) =>
 // The control point of the quadratic peaks at the amplitude, so the string's midpoint moves half of it.
 export const amplitudeFor = (row) => (isBassRow(row) ? 9 : 6);
 
-export const envelope = (amplitude, t) => amplitude * Math.exp(-t / DECAY_SECONDS);
-export const displacement = (amplitude, t) =>
-  envelope(amplitude, t) * Math.cos(2 * Math.PI * VIBRATION_HZ * t);
-export const isSettled = (amplitude, t) => envelope(amplitude, t) < MIN_AMPLITUDE;
+export const envelope = (amplitude, t, decay = DECAY_SECONDS) => amplitude * Math.exp(-t / decay);
+export const displacement = (amplitude, t, decay = DECAY_SECONDS) =>
+  envelope(amplitude, t, decay) * Math.cos(2 * Math.PI * VIBRATION_HZ * t);
+export const isSettled = (amplitude, t, decay = DECAY_SECONDS) => envelope(amplitude, t, decay) < MIN_AMPLITUDE;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+// The fret a note sits on, from its pitch and the open string under it.
+export const fretOf = (row, midi) => clamp(midi - TUNING[rowToString(row)], 0, FRET_COUNT);
+
+// Where the finger touches for a harmonic that sounds `interval` semitones above the open string.
+export const harmonicFret = (interval) =>
+  Number(Object.keys(HARMONIC_SEMITONES).find((fret) => HARMONIC_SEMITONES[fret] === interval)) || clamp(interval, 1, FRET_COUNT);
+
+// A stepped slide: the fret is whole at every instant and moves one fret per equal slice of start..end,
+// the same instants the audio re-pitches. Times are seconds on one shared origin.
+export const glideFret = (g, t) => {
+  const steps = Math.abs(g.to - g.from);
+  if (steps === 0 || t < g.start) return g.from;
+  if (t >= g.end) return g.to;
+  return g.from + Math.sign(g.to - g.from) * Math.floor(((t - g.start) / (g.end - g.start)) * steps);
+};
+
+// Sideways push of the fretted point in SVG units (negative is toward the treble side, up on screen):
+// 1.5 mm per semitone, ramped in over `dur` from `start` and back out from `releaseAt`.
+export const bendOffset = (b, t) => {
+  const up = clamp((t - b.start) / b.dur, 0, 1);
+  const down = b.releaseAt == null ? 0 : clamp((t - b.releaseAt) / b.dur, 0, 1);
+  return -(up - down) * b.semitones * BEND_MM_PER_SEMITONE * MM;
+};
 
 // Returns the next keyboard state, or null when the key is not ours.
 export const reduceKey = ({ row, frets }, key) => {
@@ -323,11 +353,15 @@ const buildString = (layer, row, cells) => {
   const ghost = el('path', { class: `string-ghost${cls}`, 'stroke-width': width }, g);
   const live = el('path', { class: `string-live${cls}`, 'stroke-width': width }, g);
   const dot = (name) => el('circle', { class: name, cx: cells[0].cx, cy: stringY(row, cells[0].cx), r: 4 }, g);
+  const hold = el('circle', { class: 'hold-dot', r: 5.5, fill: '#F3EBD8', 'pointer-events': 'none' }, g);
+  hold.style.opacity = 0;
 
-  return { g, main, ghost, live, hoverDot: dot('hover-dot'), pressDot: dot('press-dot'), keyDot: dot('key-dot'), row, end: saddle };
+  return {
+    g, main, ghost, live, hold, hoverDot: dot('hover-dot'), pressDot: dot('press-dot'), keyDot: dot('key-dot'), row, end: saddle,
+  };
 };
 
-const createVibrator = (reducedMotion) => {
+const createVibrator = (reducedMotion, wires, cells) => {
   const active = new Map();
   let raf = 0;
 
@@ -337,23 +371,40 @@ const createVibrator = (reducedMotion) => {
     trim(s, s.end.x, s.end.y);
     s.live.style.opacity = 0;
     s.ghost.style.opacity = 0;
+    s.hold.style.opacity = 0;
   };
 
   const frame = (now) => {
     active.forEach((v, s) => {
       const t = (now - v.start) / 1000;
-      if (isSettled(v.amplitude, t)) {
+      const motion = (now - v.motionStart) / 1000;
+      if (v.glide) {
+        v.fret = glideFret(v.glide, motion);
+        if (motion >= v.glide.end) v.glide = null;
+      }
+      if (!v.glide && isSettled(v.amplitude, t, v.decay)) {
         active.delete(s);
         restore(s);
         return;
       }
-      const d = displacement(v.amplitude, t);
-      const { from } = v;
+      const lift = v.bend ? bendOffset(v.bend, motion) : 0;
+      const x = segmentStart(v.fret, wires);
+      const from = { x, y: stringY(s.row, x) + lift };
+      const d = displacement(v.amplitude, t, v.decay);
       const cx = (from.x + s.end.x) / 2;
       const cy = (from.y + s.end.y) / 2;
       const path = (sign) => `M ${round2(from.x)} ${round2(from.y)} Q ${round2(cx)} ${round2(cy + sign * d)} ${round2(s.end.x)} ${round2(s.end.y)}`;
+      trim(s, from.x, from.y);
       s.live.setAttribute('d', path(1));
       s.ghost.setAttribute('d', path(-1));
+      if (v.fret > 0) {
+        const dotX = cells[v.fret].cx;
+        s.hold.setAttribute('cx', round2(dotX));
+        s.hold.setAttribute('cy', round2(stringY(s.row, dotX) + lift));
+        s.hold.style.opacity = 0.85 * Math.min(1, (3 * envelope(v.amplitude, t, v.decay)) / v.amplitude);
+      } else {
+        s.hold.style.opacity = 0;
+      }
     });
     raf = active.size ? requestAnimationFrame(frame) : 0;
   };
@@ -363,27 +414,42 @@ const createVibrator = (reducedMotion) => {
     setTimeout(() => s.g.classList.remove('flash'), 250);
   };
 
-  const pluck = (s, fromX) => {
+  const wake = () => { if (!raf) raf = requestAnimationFrame(frame); };
+
+  // The vibrating segment starts at the fretted wire; the glide and bend, if any, are in seconds from now.
+  const pluck = (s, fret, { scale = 1, decay = DECAY_SECONDS, glide = null, bend = null } = {}) => {
     if (reducedMotion()) {
       flash(s);
       return;
     }
-    const from = at(s.row, fromX);
-    trim(s, from.x, from.y);
+    const now = performance.now();
+    const x = segmentStart(fret, wires);
+    trim(s, x, stringY(s.row, x));
     s.live.style.opacity = 1;
     s.ghost.style.opacity = 0.4;
-    active.set(s, { start: performance.now(), amplitude: amplitudeFor(s.row), from });
-    if (!raf) raf = requestAnimationFrame(frame);
+    active.set(s, {
+      start: now, motionStart: now, amplitude: amplitudeFor(s.row) * scale, decay, fret, glide, bend,
+    });
+    wake();
   };
 
-  return { pluck };
+  // Moves the start of the vibrating segment without restarting it. False when the string is at rest.
+  const retarget = (s, fret) => {
+    const v = active.get(s);
+    if (!v) return false;
+    v.fret = fret;
+    v.glide = null;
+    return true;
+  };
+
+  return { pluck, retarget, flash };
 };
 
 export const buildGuitar = (svg, { player, onFretPress = () => {} }) => {
   const wires = wireXs();
   const cells = hitCells(wires);
   const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const vibrator = createVibrator(reducedMotion);
+  const vibrator = createVibrator(reducedMotion, wires, cells);
   const body = bodyPath();
 
   buildDefs(svg, body);
@@ -429,18 +495,17 @@ export const buildGuitar = (svg, { player, onFretPress = () => {} }) => {
     dot.setAttribute('cy', stringY(row, cell.cx));
   };
 
-  const fingertip = (s, row, cell) => {
+  const touchMark = (s, row, x, hollow) => {
     const dot = el('circle', {
-      cx: cell.cx, cy: stringY(row, cell.cx), r: 5.5, fill: '#F3EBD8', opacity: 0, 'pointer-events': 'none',
+      cx: x, cy: stringY(row, x), r: hollow ? 5 : 5.5, fill: hollow ? 'none' : '#F3EBD8',
+      stroke: hollow ? '#F3EBD8' : 'none', 'stroke-width': 1.8, opacity: 0, 'pointer-events': 'none',
     }, stringLayer);
     if (!dot.animate) { dot.remove(); return; }
-    const gone = dot.animate([{ opacity: 0.85 }, { opacity: 0.85, offset: 0.4 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
+    const gone = dot.animate([{ opacity: 0.9 }, { opacity: 0.9, offset: 0.5 }, { opacity: 0 }], { duration: 900, easing: 'ease-out' });
     gone.onfinish = () => dot.remove();
   };
 
-  // Visual only: the vibration, the press dot and, on a fretted cell, a fingertip that fades.
-  const strike = (row, fret, cell = cells[fret]) => {
-    const s = strings[row];
+  const pulse = (s, row, cell) => {
     moveDot(s.pressDot, row, cell);
     if (s.pressDot.animate) {
       s.pressDot.animate(
@@ -448,14 +513,62 @@ export const buildGuitar = (svg, { player, onFretPress = () => {} }) => {
         { duration: 300, easing: 'ease-out' },
       );
     }
-    if (fret > 0 && !cell.body) fingertip(s, row, cell);
-    vibrator.pluck(s, segmentStart(fret, wires));
+  };
+
+  // Visual only: the vibration, the press dot and, on a fretted cell, a fingertip that stays while it rings.
+  const strike = (row, fret, cell = cells[fret], options) => {
+    const s = strings[row];
+    pulse(s, row, cell);
+    vibrator.pluck(s, fret, options);
   };
 
   const pluck = (row, fret, cell = cells[fret]) => {
-    player.play(noteAt(rowToString(row), fret));
+    player.play(noteAt(rowToString(row), fret), 0, row);
     strike(row, fret, cell);
     onFretPress(row, fret);
+  };
+
+  // One scheduled note, visual side. Times in the spec are audio-clock seconds; the glide and bend
+  // are re-based to "seconds after spec.when", because this runs when the note is due.
+  const perform = (spec) => {
+    const s = strings[spec.row];
+    if (!s) return;
+    const fret = fretOf(spec.row, spec.midi);
+    const after = (t) => t - spec.when;
+    switch (spec.kind) {
+      case 'legato':
+        if (!vibrator.retarget(s, fret)) strike(spec.row, fret);
+        pulse(s, spec.row, cells[fret]);
+        break;
+      case 'muted':
+        vibrator.flash(s);
+        strike(spec.row, fret, cells[fret], { scale: MUTED_SCALE, decay: MUTED_DECAY });
+        break;
+      case 'palmMute':
+        strike(spec.row, fret, cells[fret], { scale: PALM_SCALE, decay: PALM_DECAY });
+        break;
+      case 'harmonic': {
+        const touch = harmonicFret(spec.midi - TUNING[rowToString(spec.row)]);
+        const x = wires[touch - 1];
+        touchMark(s, spec.row, x, true);
+        vibrator.pluck(s, 0);
+        break;
+      }
+      default: {
+        const g = spec.glide;
+        const glide = g && {
+          from: fretOf(spec.row, g.from), to: fretOf(spec.row, g.to), start: after(g.start), end: after(g.end),
+        };
+        const b = spec.bend && {
+          ...spec.bend,
+          start: after(spec.bend.start),
+          releaseAt: spec.bend.releaseAt == null ? null : after(spec.bend.releaseAt),
+        };
+        const first = glide ? glide.from : fret;
+        pulse(s, spec.row, cells[first]);
+        vibrator.pluck(s, first, { glide, bend: b });
+      }
+    }
   };
 
   const showFret = (row) => {
@@ -493,5 +606,5 @@ export const buildGuitar = (svg, { player, onFretPress = () => {} }) => {
     s.g.addEventListener('focus', () => { kb = { ...kb, row: s.row }; });
   });
 
-  return { pluck, strike };
+  return { pluck, strike, perform };
 };

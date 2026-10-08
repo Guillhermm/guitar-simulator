@@ -4,22 +4,28 @@ const LABELS = ['e', 'B', 'G', 'D', 'A', 'E'];
 const MAX_WRITABLE_FRET = 99;
 
 // Optional string label, optional bar or colon, then only characters that can appear in tab.
-const TAB_LINE = /^(\s*(?:[eEBbGgDdAa]\s*)?[|:]?)([-0-9|:hpbrxX/\\~()*.]*)$/;
+const TAB_LINE = /^(\s*(?:[eEBbGgDdAa]\s*)?[|:]?)([-0-9|:hpbrxX/\\~()*.<>]*)$/;
+const ANNOTATED = /^(.*?[|:])(\s+\S.*)$/;
 const TEMPO_LINE = /^\s*tempo\s*[:=]?\s*(\d{1,3})(?:\s*bpm)?\s*$/i;
 
 const isDigit = (c) => c !== undefined && c >= '0' && c <= '9';
 
 // Splits a tab line into its label prefix, its columns and a closing barline. Null for any other line.
 // A line with neither a label nor a bar needs a digit, so a row of dashes used as a divider is not tab.
+// Text after the closing bar, set off by whitespace ("| (3x)", "|  x2"), is an annotation: it is kept
+// in the tail so edits preserve it, and only a line whose part before it is pure tab qualifies.
 const splitLine = (raw) => {
-  const m = TAB_LINE.exec(raw.replace(/\s+$/, ''));
+  const line = raw.replace(/\s+$/, '');
+  const annotated = TAB_LINE.test(line) ? null : ANNOTATED.exec(line);
+  const m = TAB_LINE.exec(annotated ? annotated[1] : line);
   if (!m) return null;
   const [, prefix, rest] = m;
   if (!rest.includes('-')) return null;
   const tail = /[|:]*$/.exec(rest)[0];
+  if (annotated && !tail) return null;
   const body = rest.slice(0, rest.length - tail.length);
   if (!/[eEBbGgDdAa|:]/.test(prefix) && !/\d/.test(body)) return null;
-  return { prefix, body, tail };
+  return { prefix, body, tail: annotated ? tail + annotated[2] : tail };
 };
 
 const splitText = (text) => text.split('\n').map((l) => l.replace(/\r$/, ''));
@@ -48,17 +54,101 @@ const findBlocks = (lines) => {
   return blocks;
 };
 
+// Semitones above the open string for the natural harmonic written <n>.
+export const HARMONIC_SEMITONES = { 12: 12, 7: 19, 19: 19, 5: 24, 4: 28, 9: 28 };
+const DEFAULT_BEND = 2;
+
+const TOKEN = /<(\d+)>|\((\d+)\)|(\d+)|[xX]|[hpbr~/\\]/g;
+
+// Splits a tab body into num (a fret, kind 'harmonic' for <n>, 'ghost' for (n), else 'plain'), x and sym
+// tokens. from is the first column of the token as written, start and end the columns of its digits.
+export const lexLine = (body) => {
+  const tokens = [];
+  for (const m of body.matchAll(TOKEN)) {
+    const from = m.index;
+    const last = from + m[0].length - 1;
+    if (m[1] !== undefined) tokens.push({ type: 'num', n: Number(m[1]), kind: 'harmonic', from, start: from + 1, end: last - 1 });
+    else if (m[2] !== undefined) tokens.push({ type: 'num', n: Number(m[2]), kind: 'ghost', from, start: from + 1, end: last - 1 });
+    else if (m[3] !== undefined) tokens.push({ type: 'num', n: Number(m[3]), kind: 'plain', from, start: from, end: last });
+    else if (m[0] === 'x' || m[0] === 'X') tokens.push({ type: 'x', from, start: from, end: from });
+    else tokens.push({ type: 'sym', ch: m[0], from });
+  }
+  return tokens;
+};
+
+const LEGATO = 'hp/\\';
+
+// Reads one string's tokens into notes with their techniques. Bend and release targets are consumed
+// and never become notes.
+const readRow = (tokens, row, fretCount) => {
+  const notes = [];
+  let skipped = 0;
+  let last = null;
+  tokens.forEach((t, i) => {
+    if (t.type === 'sym') {
+      const next = tokens[i + 1];
+      const feedsNext = next?.type === 'num' && next.kind !== 'harmonic' && next.from === t.from + 1;
+      if (t.ch === '~') {
+        if (last) last.tech.vibrato = true;
+      } else if (t.ch === 'b') {
+        if (last && last.fret !== null && !last.tech.harmonic) last.tech.bend = { semitones: DEFAULT_BEND };
+      } else if (t.ch === 'r') {
+        if (last?.tech.bend) last.releaseCol = t.from;
+      } else if ((t.ch === '/' || t.ch === '\\') && !feedsNext && last?.end + 1 === t.from) {
+        last.tech.slideOut = t.ch === '/' ? 'up' : 'down';
+      }
+      return;
+    }
+    const prev = tokens[i - 1];
+    const sym = prev?.type === 'sym' && prev.from + 1 === t.from ? prev.ch : null;
+    if (t.type === 'num' && t.kind !== 'harmonic') {
+      if (sym === 'b' && last?.tech.bend) {
+        if (t.n > last.fret) last.tech.bend.semitones = t.n - last.fret;
+        return;
+      }
+      if (sym === 'r' && last?.releaseCol === prev.from) return;
+    }
+    const tech = {};
+    const joined = last && last.end + 1 === prev?.from;
+    if (sym && LEGATO.includes(sym) && t.type === 'num' && t.kind === 'plain' && joined && last.fret !== null) {
+      tech.legato = sym;
+    } else if ((sym === '/' || sym === '\\') && t.type === 'num' && t.kind === 'plain' && !joined) {
+      tech.slideIn = sym === '/' ? 'up' : 'down';
+    }
+    const note = { row, fret: t.type === 'x' ? null : t.n, start: t.start, end: t.end, tech };
+    if (t.type === 'x') tech.muted = true;
+    else if (t.kind === 'ghost') tech.ghost = true;
+    else if (t.kind === 'harmonic') tech.harmonic = true;
+    if (t.type === 'num' && (t.n > fretCount || (t.kind === 'harmonic' && !(t.n in HARMONIC_SEMITONES)))) {
+      skipped += 1;
+      return;
+    }
+    notes.push(note);
+    last = note;
+  });
+  return { notes, skipped };
+};
+
+// Column ranges (in body coordinates) covered by a PM---- marker on the line above a block.
+const palmMuteRanges = (lines, block) => {
+  const above = lines[block.lines[0] - 1];
+  if (above === undefined) return [];
+  return [...above.matchAll(/P\.?M\.?-*/g)].map((m) => [m.index - block.bodyStart[0], m.index + m[0].length - block.bodyStart[0]]);
+};
+
 // Notes whose digit spans overlap on different strings sound together: a two-digit fret on one
 // string covers the column of a single digit written under its second digit on another.
-const blockEvents = (block, blockIndex, offset) => {
+const blockEvents = (block, blockIndex, offset, pmRanges) => {
   const notes = [];
   let skipped = 0;
   block.bodies.forEach((body, row) => {
-    for (const m of body.matchAll(/\d+/g)) {
-      const fret = Number(m[0]);
-      if (fret > FRET_COUNT) skipped += 1;
-      else notes.push({ row, fret, start: m.index, end: m.index + m[0].length - 1 });
-    }
+    const r = readRow(lexLine(body), row, FRET_COUNT);
+    skipped += r.skipped;
+    r.notes.forEach((n) => {
+      if (n.releaseCol !== undefined) n.tech.bend.releaseStep = offset + n.releaseCol;
+      if (pmRanges.some(([lo, hi]) => n.start >= lo && n.start < hi)) n.tech.palmMute = true;
+      notes.push(n);
+    });
   });
   notes.sort((a, b) => a.start - b.start || a.row - b.row);
   const groups = [];
@@ -75,7 +165,9 @@ const blockEvents = (block, blockIndex, offset) => {
     step: offset + g.col,
     block: blockIndex,
     col: g.col,
-    notes: g.notes.map(({ row, fret }) => ({ row, fret })).sort((a, b) => a.row - b.row),
+    notes: g.notes
+      .map(({ row, fret, tech }) => (Object.keys(tech).length ? { row, fret, tech } : { row, fret }))
+      .sort((a, b) => a.row - b.row),
   }));
   return { events, skipped };
 };
@@ -95,7 +187,7 @@ export const parseTab = (text) => {
   let skipped = 0;
   let offset = 0;
   found.forEach((block, i) => {
-    const r = blockEvents(block, i, offset);
+    const r = blockEvents(block, i, offset, palmMuteRanges(lines, block));
     events.push(...r.events);
     skipped += r.skipped;
     offset += block.width;
@@ -154,7 +246,7 @@ export const setFret = (text, { block, row, col }, fret) => {
   };
 
   if (fret === null) {
-    for (const m of bodies[row].matchAll(/\d+/g)) {
+    for (const m of bodies[row].matchAll(/\d+|[xX]/g)) {
       if (col >= m.index && col < m.index + m[0].length) {
         bodies[row] = blank(bodies[row], m.index, m.index + m[0].length);
       }

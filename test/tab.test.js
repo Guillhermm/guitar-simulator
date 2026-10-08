@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTab, readTempo, withTempo, setFret, emptyTab, appendBlock, landedCol } from '../src/tab.js';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { parseTab, lexLine, HARMONIC_SEMITONES, readTempo, withTempo, setFret, emptyTab, appendBlock, landedCol } from '../src/tab.js';
 
 const FIXTURE = [
   'Some Song - Some Artist',
@@ -37,9 +38,9 @@ test('parses tempo, two blocks and the events of a cifraclub-style page', () => 
     { step: 0, block: 0, col: 0, notes: [{ row: 5, fret: 3 }] },
     { step: 1, block: 0, col: 1, notes: [{ row: 4, fret: 0 }] },
     { step: 2, block: 0, col: 2, notes: [{ row: 0, fret: 0 }, { row: 1, fret: 1 }, { row: 2, fret: 2 }, { row: 3, fret: 2 }] },
-    { step: 6, block: 0, col: 6, notes: [{ row: 0, fret: 12 }, { row: 1, fret: 3 }] },
+    { step: 6, block: 0, col: 6, notes: [{ row: 0, fret: 12 }, { row: 1, fret: 3 }, { row: 2, fret: null, tech: { muted: true } }] },
     { step: 10, block: 0, col: 10, notes: [{ row: 0, fret: 5 }] },
-    { step: 12, block: 0, col: 12, notes: [{ row: 0, fret: 7 }] },
+    { step: 12, block: 0, col: 12, notes: [{ row: 0, fret: 7, tech: { legato: 'h' } }] },
     { step: 21, block: 1, col: 2, notes: [{ row: 0, fret: 5 }] },
   ]);
 });
@@ -248,4 +249,184 @@ test('setFret over the second digit with a two-digit fret keeps both and reports
   assert.deepEqual(parseTab(out).events.map((e) => e.notes[0].fret), [10, 14]);
   assert.equal(out.split('\n')[0], 'e|-10-14--|');
   assert.equal(landedCol(out, at(0, 0, 2)), 4);
+});
+
+// One string of tab, parsed on its own: the notes of row 0 with their techniques.
+const row0 = (body) => {
+  const pad = '-'.repeat(body.length + 1);
+  const lines = [`e|${body}-|`, ...['B', 'G', 'D', 'A', 'E'].map((l) => `${l}|${pad}|`)];
+  return parseTab(lines.join('\n')).events.flatMap((e) => e.notes.map(({ row, ...n }) => ({ step: e.step, ...n })));
+};
+
+const TECH_TABLE = [
+  ['5h7', [{ step: 0, fret: 5 }, { step: 2, fret: 7, tech: { legato: 'h' } }]],
+  ['7p5', [{ step: 0, fret: 7 }, { step: 2, fret: 5, tech: { legato: 'p' } }]],
+  ['5h7p5', [{ step: 0, fret: 5 }, { step: 2, fret: 7, tech: { legato: 'h' } }, { step: 4, fret: 5, tech: { legato: 'p' } }]],
+  ['5/7', [{ step: 0, fret: 5 }, { step: 2, fret: 7, tech: { legato: '/' } }]],
+  ['7\\5', [{ step: 0, fret: 7 }, { step: 2, fret: 5, tech: { legato: '\\' } }]],
+  ['-/7', [{ step: 2, fret: 7, tech: { slideIn: 'up' } }]],
+  ['-\\7', [{ step: 2, fret: 7, tech: { slideIn: 'down' } }]],
+  ['7\\--', [{ step: 0, fret: 7, tech: { slideOut: 'down' } }]],
+  ['7/--', [{ step: 0, fret: 7, tech: { slideOut: 'up' } }]],
+  ['7b', [{ step: 0, fret: 7, tech: { bend: { semitones: 2 } } }]],
+  ['7b9', [{ step: 0, fret: 7, tech: { bend: { semitones: 2 } } }]],
+  ['12b14', [{ step: 0, fret: 12, tech: { bend: { semitones: 2 } } }]],
+  ['7b10', [{ step: 0, fret: 7, tech: { bend: { semitones: 3 } } }]],
+  ['7b9r7', [{ step: 0, fret: 7, tech: { bend: { semitones: 2, releaseStep: 3 } } }]],
+  ['7b(9)', [{ step: 0, fret: 7, tech: { bend: { semitones: 2 } } }]],
+  ['7b(10)r(7)', [{ step: 0, fret: 7, tech: { bend: { semitones: 3, releaseStep: 6 } } }]],
+  ['7~~', [{ step: 0, fret: 7, tech: { vibrato: true } }]],
+  ['x-x', [{ step: 0, fret: null, tech: { muted: true } }, { step: 2, fret: null, tech: { muted: true } }]],
+  ['<12>', [{ step: 1, fret: 12, tech: { harmonic: true } }]],
+  ['(7)', [{ step: 1, fret: 7, tech: { ghost: true } }]],
+  ['-b9--', [{ step: 2, fret: 9 }]],
+  ['h7', [{ step: 1, fret: 7 }]],
+  ['r7', [{ step: 1, fret: 7 }]],
+  ['~7', [{ step: 1, fret: 7 }]],
+];
+
+for (const [body, expected] of TECH_TABLE) {
+  test(`technique snippet ${body}`, () => {
+    assert.deepEqual(row0(body), expected);
+  });
+}
+
+test('a bend or release target is never a note, however it is written', () => {
+  for (const body of ['7b9', '7b(9)', '7b9r7', '7b9r(7)', '12b14r12']) {
+    assert.equal(row0(body).length, 1, body);
+  }
+});
+
+test('harmonics: the table, and other values are skipped and counted', () => {
+  assert.deepEqual(HARMONIC_SEMITONES, { 12: 12, 7: 19, 19: 19, 5: 24, 4: 28, 9: 28 });
+  const tab = parseTab('e|<12>-<3>-<5>|\nB|-----------|\nG|-----------|\nD|-----------|\nA|-----------|\nE|-----------|');
+  assert.equal(tab.skipped, 1);
+  assert.deepEqual(tab.events.map((e) => e.notes[0].fret), [12, 5]);
+});
+
+test('lexLine tokens', () => {
+  assert.deepEqual(lexLine('5h<7>(3)x'), [
+    { type: 'num', n: 5, kind: 'plain', from: 0, start: 0, end: 0 },
+    { type: 'sym', ch: 'h', from: 1 },
+    { type: 'num', n: 7, kind: 'harmonic', from: 2, start: 3, end: 3 },
+    { type: 'num', n: 3, kind: 'ghost', from: 5, start: 6, end: 6 },
+    { type: 'x', from: 8, start: 8, end: 8 },
+  ]);
+});
+
+test('a PM line above a block marks the notes in its columns', () => {
+  const tab = parseTab([
+    'PM--',
+    'e|5---5---|',
+    'B|--------|',
+    'G|--------|',
+    'D|--------|',
+    'A|--------|',
+    'E|--------|',
+  ].join('\n'));
+  assert.deepEqual(tab.events.map((e) => e.notes[0].tech), [{ palmMute: true }, undefined]);
+});
+
+test('a PM line columns follow the block body, not the line start', () => {
+  const tab = parseTab([
+    '  PM--',
+    'e|5---5-|',
+    'B|-----|',
+    'G|-----|',
+    'D|-----|',
+    'A|-----|',
+    'E|-----|',
+  ].join('\n'));
+  assert.deepEqual(tab.events.map((e) => e.notes[0].tech), [{ palmMute: true }, undefined]);
+});
+
+// The real tabs live beside the repo, not in it (they are third-party transcriptions), so a fresh clone skips these.
+const TABS = new URL('../../tabs/', import.meta.url);
+const realTest = (name, fn) => test(name, { skip: !existsSync(TABS) && 'no ../tabs folder' }, fn);
+const real = (name) => parseTab(readFileSync(new URL(name, TABS), 'utf8'));
+const techs = (tab) => tab.events.flatMap((e) => e.notes.map((n) => n.tech).filter(Boolean));
+
+test('text after the closing bar is an annotation: the line stays tab and setFret keeps the text', () => {
+  const lines = emptyTab(6).split('\n');
+  lines[2] = `${lines[2]} (3x)`;
+  lines[3] = `${lines[3]}      x2`;
+  const text = lines.join('\n');
+  const tab = parseTab(text);
+  assert.equal(tab.blocks.length, 1);
+  assert.equal(tab.blocks[0].width, 6);
+  const next = setFret(text, { block: 0, row: 2, col: 1 }, 5);
+  assert.equal(next.split('\n')[2], 'G|-5----| (3x)');
+  assert.equal(next.split('\n')[3], 'D|------|      x2');
+  assert.deepEqual(parseTab(next).events.map((e) => e.notes), [[{ row: 2, fret: 5 }]]);
+});
+
+test('an annotation needs a closing bar and pure tab before it, so lyrics and chord charts stay out', () => {
+  const block = (third) => {
+    const lines = emptyTab(4).split('\n');
+    lines[2] = third;
+    return parseTab(lines.join('\n')).blocks.length;
+  };
+  assert.equal(block('G|--5- (3x)'), 0);
+  assert.equal(block('| Em - Am |  x2'), 0);
+  assert.equal(block('G|-5 Hold me close |'), 0);
+});
+
+const REAL_COUNTS = {
+  'here-without-you.txt': { blocks: 6, events: 80 },
+  'nothing-else-matters.txt': { blocks: 17, events: 153 },
+  'techniques-test.txt': { blocks: 8, events: 38 },
+  'wish-you-were-here.txt': { blocks: 13, events: 96 },
+};
+
+realTest('every real tab parses into one block per six tab lines, "(3x)" lines included', () => {
+  for (const [f, want] of Object.entries(REAL_COUNTS)) {
+    const tab = real(f);
+    assert.deepEqual({ blocks: tab.blocks.length, events: tab.events.length }, want, f);
+  }
+});
+
+realTest('every real tab in tabs/ parses without throwing', () => {
+  const files = readdirSync(TABS).filter((f) => f.endsWith('.txt'));
+  assert.ok(files.length >= 4);
+  for (const f of files) assert.ok(real(f).events.length > 0, f);
+});
+
+realTest('here-without-you: 1h4 is a hammer-on, trailing "| " is ignored', () => {
+  const tab = real('here-without-you.txt');
+  assert.equal(tab.tempo, 72);
+  assert.ok(techs(tab).some((t) => t.legato === 'h'));
+  assert.equal(techs(tab).filter((t) => t.bend).length, 0);
+});
+
+realTest('wish-you-were-here and nothing-else-matters carry hammer-ons, pull-offs and slides', () => {
+  for (const f of ['wish-you-were-here.txt', 'nothing-else-matters.txt']) {
+    const t = techs(real(f));
+    assert.ok(t.some((x) => x.legato === 'h'), f);
+    assert.ok(t.some((x) => x.legato === 'p'), f);
+  }
+  assert.ok(techs(real('wish-you-were-here.txt')).some((x) => x.legato === '/' || x.legato === '\\'));
+  assert.ok(techs(real('nothing-else-matters.txt')).some((x) => x.legato === '\\'));
+});
+
+realTest('techniques-test.txt covers every technique and no bend target sounds', () => {
+  const tab = real('techniques-test.txt');
+  assert.equal(tab.tempo, 80);
+  assert.equal(tab.skipped, 0);
+  const t = techs(tab);
+  for (const key of ['legato', 'bend', 'vibrato', 'muted', 'harmonic', 'ghost']) {
+    assert.ok(t.some((x) => key in x), key);
+  }
+  assert.deepEqual([...new Set(t.filter((x) => x.legato).map((x) => x.legato))].sort(), ['/', '\\', 'h', 'p']);
+  const bends = t.filter((x) => x.bend).map((x) => x.bend);
+  assert.deepEqual(bends.map((b) => b.semitones), [2, 2, 2]);
+  assert.equal(bends.filter((b) => b.releaseStep !== undefined).length, 1);
+  // The bend line B|-8b10---8b10r8---8b----|: only 8, 8 and 8 are notes, never 10 or the released 8.
+  const bendBlock = tab.events.filter((e) => e.block === 3).flatMap((e) => e.notes);
+  assert.deepEqual(bendBlock.map((n) => n.fret), [8, 8, 8]);
+});
+
+test('a hammer-on cannot reach across a block boundary: the first note of the next block is plucked', () => {
+  const block = (g) => ['e|----|', 'B|----|', g, 'D|----|', 'A|----|', 'E|----|'].join('\n');
+  const tab = parseTab(`${block('G|--5h|')}\n\n${block('G|h7--|')}`);
+  assert.deepEqual(tab.events.map((e) => e.notes), [[{ row: 2, fret: 5 }], [{ row: 2, fret: 7 }]]);
 });

@@ -55,6 +55,31 @@ const button = (label, parent, className = 'btn') => {
   return node;
 };
 
+// Specs carry audio times, not steps. The first spec due belongs to the first event, and every other
+// time sits a whole number of steps after it, so one anchor maps a spec time back to its event.
+export const stepLookup = (events, bpm) => {
+  const stepSec = 60 / (bpm * 4);
+  const byStep = new Map(events.map((e) => [e.step, e]));
+  let anchor = null;
+  return {
+    eventFor: (when) => {
+      if (!events.length) return null;
+      anchor ??= { when, step: events[0].step };
+      return byStep.get(anchor.step + Math.round((when - anchor.when) / stepSec)) ?? null;
+    },
+  };
+};
+
+// One animation frame of the playhead: the specs whose time has come, in order, the specs still
+// waiting, and the event the playhead should show (unchanged when no due spec maps to one).
+export const takeDue = (queue, t, eventFor, shown) => {
+  const split = queue.findIndex((spec) => spec.when > t);
+  const due = split < 0 ? queue : queue.slice(0, split);
+  const rest = split < 0 ? [] : queue.slice(split);
+  const playhead = due.reduce((current, spec) => eventFor(spec.when) ?? current, shown);
+  return { due, rest, playhead };
+};
+
 export const statusFor = (parsed) => {
   const parts = [];
   if (parsed.events.length === 0) parts.push('Nothing to play yet.');
@@ -75,6 +100,8 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   let playing = false;
   let ending = false;
   let queue = [];
+  let steps = null;
+  let shown = null;
   let frame = 0;
   let saveTimer = null;
   let lastFocus = null;
@@ -141,6 +168,8 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   const finish = () => {
     cancelAnimationFrame(frame);
     queue = [];
+    steps = null;
+    shown = null;
     ending = false;
     playing = false;
     play.textContent = 'Play';
@@ -149,11 +178,12 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   };
 
   const tick = () => {
-    const t = player.now();
-    while (queue.length && queue[0].when <= t) {
-      const { event } = queue.shift();
-      event.notes.forEach((n) => guitar.strike(n.row, n.fret));
-      editor.setPlayhead(event);
+    const { due, rest, playhead } = takeDue(queue, player.now(), steps.eventFor, shown);
+    queue = rest;
+    due.forEach((spec) => guitar.perform(spec));
+    if (playhead !== shown) {
+      shown = playhead;
+      editor.setPlayhead(playhead);
     }
     if (ending && queue.length === 0) finish();
     else frame = requestAnimationFrame(tick);
@@ -161,8 +191,8 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
 
   const scheduler = createScheduler({
     now: () => player.now(),
-    play: (midi, when) => player.play(midi, when),
-    onStep: (event, when) => queue.push({ event, when }),
+    play: (spec) => player.play(spec),
+    onStep: (spec) => queue.push(spec),
     onEnd: () => { ending = true; },
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (id) => clearTimeout(id),
@@ -170,6 +200,7 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
 
   const stop = () => {
     scheduler.stop();
+    player.silence();
     finish();
   };
 
@@ -180,8 +211,11 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     playing = true;
     ending = false;
     queue = [];
+    shown = null;
+    const bpm = clamp(Number(tempo.value) || parsed.tempo || DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO);
+    steps = stepLookup(parsed.events, bpm);
     play.textContent = 'Stop';
-    scheduler.start(parsed.events, clamp(Number(tempo.value) || parsed.tempo || DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO), 0);
+    scheduler.start(parsed.events, bpm, 0);
     frame = requestAnimationFrame(tick);
   };
 

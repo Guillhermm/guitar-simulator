@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setFret, emptyTab, landedCol, digitCount, parseTab } from '../src/tab.js';
-import { ENTRY_WINDOW_MS, enterDigit, moveRight, reduceGridKey } from '../src/editor-grid.js';
+import { ENTRY_WINDOW_MS, cellText, enterDigit, moveRight, reduceGridKey } from '../src/editor-grid.js';
 
 const at = (block, row, col) => ({ block, row, col });
 const widths = [4, 3];
@@ -96,4 +96,16 @@ test('a key the grid does not own returns null', () => {
 
 test('moveRight keeps the row when it crosses into the next block', () => {
   assert.deepEqual(moveRight(at(0, 4, 3), widths).cursor, at(1, 4, 0));
+});
+
+test('a muted note (fret null) shows as x, an empty cell as nothing', () => {
+  assert.deepEqual([undefined, null, 0, 12].map(cellText), ['', 'x', '0', '12']);
+});
+
+test('clearing a cell holding x removes the muted note', () => {
+  const lines = emptyTab(4).split('\n');
+  lines[3] = 'D|-x--|';
+  const cleared = setFret(lines.join('\n'), { block: 0, row: 3, col: 1 }, null);
+  assert.equal(cleared.split('\n')[3], 'D|----|');
+  assert.equal(parseTab(cleared).events.length, 0);
 });

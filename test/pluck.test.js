@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderPluck } from '../src/pluck.js';
+import { renderPluck, renderHarmonic } from '../src/pluck.js';
 import { TUNING, midiToHz, noteAt } from '../src/pitch.js';
 
 const SAMPLE_RATE = 44100;
@@ -117,4 +117,73 @@ test('same random source gives the same output, a different one does not', () =>
 test('rejects invalid input', () => {
   assert.throws(() => renderPluck({ frequency: 0, sampleRate: SAMPLE_RATE, duration: 1 }), RangeError);
   assert.throws(() => renderPluck({ frequency: 30000, sampleRate: SAMPLE_RATE, duration: 1 }), RangeError);
+});
+
+const energy = (x, from, to) => {
+  let sum = 0;
+  for (let i = from; i < to; i++) sum += x[i] ** 2;
+  return sum;
+};
+
+test('a short ring dies much sooner than the default', () => {
+  const long = render(midiToHz(45), 1);
+  const short = renderPluck({ frequency: midiToHz(45), sampleRate: SAMPLE_RATE, duration: 1, ring: 0.05, random: seeded(1) });
+  const tail = (x) => energy(x, SAMPLE_RATE / 2, SAMPLE_RATE) / energy(x, 0, SAMPLE_RATE / 2);
+  assert.ok(tail(short) < tail(long) / 100, `${tail(short)} vs ${tail(long)}`);
+});
+
+test('ring does not change the pitch', () => {
+  const frequency = midiToHz(52);
+  const expected = SAMPLE_RATE / frequency;
+  const x = renderPluck({ frequency, sampleRate: SAMPLE_RATE, duration: 0.5, ring: 0.3, random: seeded(2) });
+  const k = Math.floor(1500 / expected);
+  const cents = Math.abs(1200 * Math.log2(expected / estimatePeriod(x, expected, k)));
+  assert.ok(cents < 5, `${cents} cents`);
+});
+
+test('renderPluck rejects a non-positive ring', () => {
+  assert.throws(() => renderPluck({ frequency: 220, sampleRate: SAMPLE_RATE, duration: 1, ring: 0 }), RangeError);
+});
+
+test('harmonics are within 5 cents at the pitches the tab can ask for', (t) => {
+  let worst = 0;
+  for (const midi of [52, 59, 64, 71, 83, 76, 88]) {
+    const frequency = midiToHz(midi);
+    const expected = SAMPLE_RATE / frequency;
+    const x = renderHarmonic({ frequency, sampleRate: SAMPLE_RATE, duration: 0.5 });
+    const k = Math.max(1, Math.floor(1500 / expected));
+    const cents = Math.abs(1200 * Math.log2(expected / estimatePeriod(x, expected, k)));
+    worst = Math.max(worst, cents);
+    assert.ok(cents < 5, `midi ${midi}: ${cents.toFixed(2)} cents`);
+  }
+  t.diagnostic(`worst harmonic pitch error: ${worst.toFixed(3)} cents`);
+});
+
+test('a harmonic starts softly over 3 ms and keeps ringing for seconds', () => {
+  const x = renderHarmonic({ frequency: 440, sampleRate: SAMPLE_RATE, duration: 6 });
+  assert.equal(x[0], 0);
+  assert.ok(Math.abs(x[10]) < 0.3);
+  assert.ok(energy(x, 5 * SAMPLE_RATE, 5.1 * SAMPLE_RATE) > 0);
+  let peak = 0;
+  for (const v of x) peak = Math.max(peak, Math.abs(v));
+  assert.ok(peak <= 1 && peak > 0.5);
+});
+
+test('a harmonic is dominated by its fundamental', () => {
+  const x = renderHarmonic({ frequency: 440, sampleRate: SAMPLE_RATE, duration: 0.5 });
+  const amp = (f) => {
+    let re = 0;
+    let im = 0;
+    for (let i = 0; i < 20000; i++) {
+      re += x[i] * Math.cos((2 * Math.PI * f * i) / SAMPLE_RATE);
+      im += x[i] * Math.sin((2 * Math.PI * f * i) / SAMPLE_RATE);
+    }
+    return Math.hypot(re, im);
+  };
+  assert.ok(amp(880) / amp(440) < 0.25);
+  assert.ok(amp(880) > amp(1320));
+});
+
+test('renderHarmonic rejects invalid input', () => {
+  assert.throws(() => renderHarmonic({ frequency: 0, sampleRate: SAMPLE_RATE, duration: 1 }), RangeError);
 });

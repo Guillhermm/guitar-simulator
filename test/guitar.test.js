@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   hitCells, wireXs, quadFor, gapAt, stringY, rowEdgeY, NUT_X, SADDLE_X, HIT_LEFT_X, NUT_GAP, CENTER_Y,
   rowToString, stringLabel, fretText, reduceKey, displacement, isSettled, amplitudeFor, isWound,
-  segmentStart, crossings, cellAt, bodyPath, boardPath, boardHalfWidth, headstockPath, rollerFor, tieHole,
+  segmentStart, fretOf, harmonicFret, glideFret, bendOffset, envelope, crossings, cellAt, bodyPath, boardPath, boardHalfWidth, headstockPath, rollerFor, tieHole,
 } from '../src/guitar.js';
 
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
@@ -245,4 +245,39 @@ test('crossings: a move that cuts the nut corner crosses each string once', () =
   const hits = crossings({ x: NUT_X - 40, y: stringY(0, NUT_X) - 6 }, { x: NUT_X + 200, y: stringY(5, NUT_X + 200) + 6 });
   assert.equal(new Set(hits.map((c) => c.row)).size, hits.length);
   assert.ok(hits.length >= 5);
+});
+
+test('fretOf is the distance above the open string, clamped to the board', () => {
+  assert.equal(fretOf(0, 64), 0);
+  assert.equal(fretOf(0, 71), 7);
+  assert.equal(fretOf(5, 45), 5);
+  assert.equal(fretOf(0, 40), 0);
+  assert.equal(fretOf(0, 100), 19);
+});
+
+test('a harmonic is touched at the fret that sounds it', () => {
+  assert.deepEqual([12, 19, 24, 28].map(harmonicFret), [12, 7, 5, 4]);
+});
+
+test('a slide moves one whole fret per slice of start..end and lands on the target', () => {
+  const g = { from: 5, to: 9, start: 0.1, end: 0.5 };
+  assert.deepEqual([0, 0.1, 0.19, 0.2, 0.31, 0.4, 0.49, 0.5, 1].map((t) => glideFret(g, t)), [5, 5, 5, 6, 7, 8, 8, 9, 9]);
+  assert.equal(glideFret({ from: 7, to: 3, start: 0, end: 0.4 }, 0.15), 6);
+});
+
+test('a bend pushes 1.8 units per semitone toward the treble side and comes back on release', () => {
+  const b = { semitones: 2, start: 0.1, dur: 0.1, releaseAt: 1 };
+  near(bendOffset(b, 0), 0);
+  near(bendOffset(b, 0.15), -1.8);
+  near(bendOffset(b, 0.5), -3.6);
+  near(bendOffset(b, 1.05), -1.8);
+  near(bendOffset(b, 1.2), 0);
+  near(bendOffset({ semitones: 1, start: 0, dur: 0.1 }, 5), -1.8);
+});
+
+test('envelope takes a decay time, defaulting to the string value', () => {
+  near(envelope(6, 0.7), 6 / Math.E);
+  near(envelope(6, 0.07, 0.07), 6 / Math.E);
+  assert.ok(isSettled(6, 0.5, 0.07));
+  assert.ok(!isSettled(6, 0.5));
 });

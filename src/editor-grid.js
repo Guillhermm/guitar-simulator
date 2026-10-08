@@ -51,10 +51,17 @@ export const reduceGridKey = (cursor, key, widths) => {
   }
 };
 
+// A muted note (x in the text) parses to fret null.
+export const cellText = (fret) => {
+  if (fret === undefined) return '';
+  return fret === null ? 'x' : String(fret);
+};
+
 const ariaLabel = (cursor, fret, multiple) => {
   const place = `string ${cursor.row + 1}, step ${cursor.col + 1}`;
   const bar = multiple ? `bar ${cursor.block + 1}, ` : '';
-  return `${bar}${place}, ${fret === undefined ? 'empty' : `fret ${fret}`}`;
+  const what = fret === undefined ? 'empty' : (fret === null ? 'muted' : `fret ${fret}`);
+  return `${bar}${place}, ${what}`;
 };
 
 const make = (tag, className, parent, text) => {
@@ -99,7 +106,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
 
   const paintCell = (c, node) => {
     const fret = frets.get(cellKey(c));
-    const label = fret === undefined ? '' : String(fret);
+    const label = cellText(fret);
     const span = node.firstChild;
     if (span.textContent !== label) span.textContent = label;
     node.setAttribute('aria-label', ariaLabel(c, fret, parsed.blocks.length > 1));
