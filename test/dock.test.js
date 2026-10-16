@@ -1,0 +1,121 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { swapEditor, createTabPanel } from '../src/tab-panel.js';
+import { UI_KEY } from '../src/storage.js';
+
+const fakeEditor = (name, cue = 0, log = []) => {
+  const editor = {
+    name,
+    log,
+    getCue: () => cue,
+    setCue: (step) => { editor.log.push([name, 'setCue', step]); },
+    setPlayhead: (event) => { editor.log.push([name, 'setPlayhead', event]); },
+    dispose: () => { editor.log.push([name, 'dispose']); },
+  };
+  return editor;
+};
+
+test('swapEditor builds the new editor and carries the cue over', () => {
+  const log = [];
+  const old = fakeEditor('text', 37, log);
+  const next = swapEditor(old, () => fakeEditor('grid', 0, log), null);
+  assert.equal(next.name, 'grid');
+  assert.deepEqual(log, [['text', 'dispose'], ['grid', 'setCue', 37]]);
+});
+
+test('swapEditor re-applies the playhead only when something is sounding', () => {
+  const event = { block: 1, col: 4 };
+  const playing = [];
+  swapEditor(fakeEditor('text', 5), () => fakeEditor('grid', 0, playing), event);
+  assert.deepEqual(playing, [['grid', 'setCue', 5], ['grid', 'setPlayhead', event]]);
+  const idle = [];
+  swapEditor(fakeEditor('grid', 5), () => fakeEditor('text', 0, idle), null);
+  assert.deepEqual(idle, [['text', 'setCue', 5]]);
+});
+
+test('swapEditor copes with an editor that has nothing to dispose', () => {
+  const old = fakeEditor('text', 2);
+  delete old.dispose;
+  assert.equal(swapEditor(old, () => fakeEditor('grid'), null).name, 'grid');
+});
+
+// A stand-in where every property is another stand-in; enough to build the panel without a browser.
+const stub = () => {
+  const store = new Map();
+  return new Proxy(() => {}, {
+    get: (_, key) => {
+      if (key === Symbol.toPrimitive) return () => 0;
+      if (key === Symbol.iterator) return function* empty() {};
+      if (key === 'then') return undefined;
+      if (!store.has(key)) store.set(key, stub());
+      return store.get(key);
+    },
+    set: (_, key, value) => { store.set(key, value); return true; },
+    apply: () => stub(),
+    construct: () => stub(),
+  });
+};
+
+const withBrowser = (phone, fn) => {
+  const globals = {
+    document: stub(),
+    window: { matchMedia: () => ({ matches: phone }), addEventListener: () => {} },
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame: () => {},
+    location: { search: '?editor=grid' },
+  };
+  const saved = Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
+  Object.entries(globals).forEach(([key, value]) => {
+    Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
+  });
+  try {
+    return fn();
+  } finally {
+    saved.forEach(([key, d]) => (d ? Object.defineProperty(globalThis, key, d) : delete globalThis[key]));
+  }
+};
+
+const mount = ({ phone = false, ui = null }) => withBrowser(phone, () => {
+  const built = [];
+  const editors = {
+    text: () => { built.push('text'); return fakeEditor('text'); },
+    grid: () => { built.push('grid'); return fakeEditor('grid'); },
+  };
+  const writes = [];
+  const storage = {
+    getItem: (k) => (k === UI_KEY ? ui : null),
+    setItem: (k, v) => writes.push([k, v]),
+  };
+  const root = { dataset: {} };
+  createTabPanel({ dock: stub(), root, player: stub(), guitar: stub(), editors, storage });
+  return { built, root, writes };
+});
+
+test('with nothing saved the panel builds the Text editor, open on desktop', () => {
+  const { built, root } = mount({});
+  assert.deepEqual(built, ['text']);
+  assert.equal(root.dataset.open, 'true');
+});
+
+test('with nothing saved a portrait phone starts collapsed', () => {
+  assert.equal(mount({ phone: true }).root.dataset.open, 'false');
+});
+
+test('a saved choice wins at every width', () => {
+  const ui = JSON.stringify({ editor: 'grid', dockOpen: true });
+  const phone = mount({ phone: true, ui });
+  assert.deepEqual(phone.built, ['grid']);
+  assert.equal(phone.root.dataset.open, 'true');
+  const desktop = mount({ ui: JSON.stringify({ editor: 'text', dockOpen: false }) });
+  assert.deepEqual(desktop.built, ['text']);
+  assert.equal(desktop.root.dataset.open, 'false');
+});
+
+test('?editor= in the address changes nothing: only the saved choice picks the editor', () => {
+  // withBrowser sets location.search to ?editor=grid for every mount
+  assert.deepEqual(mount({}).built, ['text']);
+});
+
+test('building the panel writes no ui state until the user changes something', () => {
+  assert.deepEqual(mount({}).writes, []);
+});

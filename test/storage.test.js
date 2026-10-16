@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readSaved, save, KEY, MAX_BYTES } from '../src/storage.js';
+import { readSaved, save, KEY, MAX_BYTES, UI_KEY, uiDefaults, readUi, saveUi } from '../src/storage.js';
 import { emptyTab } from '../src/tab.js';
 
 const EMPTY = { text: emptyTab(), tempo: 80 };
@@ -48,4 +48,44 @@ test('save writes JSON under the key and reports failures instead of throwing', 
   assert.deepEqual(JSON.parse(store[KEY]), { text: 'a', tempo: 70 });
   assert.equal(save({ setItem: () => { throw new Error('quota'); } }, { text: 'a', tempo: 70 }), false);
   assert.equal(save(null, { text: 'a', tempo: 70 }), false);
+});
+
+test('the ui key is versioned and apart from the tab document', () => {
+  assert.equal(UI_KEY, 'guitar-simulator.ui.v1');
+  assert.notEqual(UI_KEY, KEY);
+});
+
+test('ui defaults are Text, open on desktop and collapsed on a portrait phone', () => {
+  assert.deepEqual(uiDefaults(false), { editor: 'text', dockOpen: true });
+  assert.deepEqual(uiDefaults(true), { editor: 'text', dockOpen: false });
+});
+
+test('a saved ui state wins at every width', () => {
+  const raw = JSON.stringify({ editor: 'grid', dockOpen: true });
+  assert.deepEqual(readUi(raw, true), { editor: 'grid', dockOpen: true });
+  assert.deepEqual(readUi(JSON.stringify({ editor: 'text', dockOpen: false }), false), { editor: 'text', dockOpen: false });
+});
+
+test('an absent or malformed ui value falls back to the defaults for the width', () => {
+  const inputs = [null, undefined, '', 'not json', '{', 'null', '[]', '42', '"grid"', '{}'];
+  inputs.forEach((raw) => {
+    assert.deepEqual(readUi(raw, false), { editor: 'text', dockOpen: true }, String(raw));
+    assert.deepEqual(readUi(raw, true), { editor: 'text', dockOpen: false }, String(raw));
+  });
+});
+
+test('each ui field is validated on its own', () => {
+  assert.deepEqual(readUi(JSON.stringify({ editor: 'piano', dockOpen: false }), false), { editor: 'text', dockOpen: false });
+  assert.deepEqual(readUi(JSON.stringify({ editor: 'grid', dockOpen: 'yes' }), true), { editor: 'grid', dockOpen: false });
+  assert.deepEqual(readUi(JSON.stringify({ editor: 'grid', dockOpen: 1 }), false), { editor: 'grid', dockOpen: true });
+});
+
+test('saveUi writes only editor and dockOpen under its own key and reports failures', () => {
+  const store = {};
+  const ok = saveUi({ setItem: (k, v) => { store[k] = v; } }, { editor: 'grid', dockOpen: false, text: 'leak' });
+  assert.equal(ok, true);
+  assert.deepEqual(JSON.parse(store[UI_KEY]), { editor: 'grid', dockOpen: false });
+  assert.equal(KEY in store, false);
+  assert.equal(saveUi({ setItem: () => { throw new Error('blocked'); } }, { editor: 'text', dockOpen: true }), false);
+  assert.equal(saveUi(null, { editor: 'text', dockOpen: true }), false);
 });

@@ -1,10 +1,13 @@
 import { parseTab, withTempo, emptyTab } from './tab.js';
 import { createScheduler } from './scheduler.js';
-import { KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, save } from './storage.js';
+import { KEY, UI_KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, readUi, save, saveUi } from './storage.js';
+import { buildIcon } from './icons.js';
 import { exportFile, readImportedFile } from './files.js';
 
 const SAVE_DELAY_MS = 300;
 const UNDO_MS = 8000;
+const PHONE_PORTRAIT = '(orientation: portrait) and (max-width: 48rem)';
+const EDITOR_LABELS = [['text', 'Text'], ['grid', 'Grid']];
 
 export const lineStarts = (text) => {
   const starts = [0];
@@ -106,17 +109,24 @@ const button = (label, parent, className = 'btn') => {
   return node;
 };
 
-// An SVG rather than the U+23EE glyph, which some platforms draw as a color emoji.
-const backIcon = () => {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 16 16');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('focusable', 'false');
-  const path = document.createElementNS(ns, 'path');
-  path.setAttribute('d', 'M3 3h2v10H3zM14 3v10L6 8z');
-  svg.append(path);
-  return svg;
+// A button with no visible text: aria-label is its name, data-tip is the tooltip the stylesheet draws.
+const iconButton = ({ icon, label, tip }, parent, className = 'btn btn-ghost') => {
+  const node = button('', parent, className);
+  node.append(buildIcon(icon));
+  node.setAttribute('aria-label', label);
+  node.dataset.tip = tip;
+  return node;
+};
+
+// The text is the document and never lives in an editor, so a switch builds the new editor from it
+// and carries over the two things only an editor knows: the cue and the playhead.
+export const swapEditor = (previous, build, shown) => {
+  const cue = previous.getCue();
+  if (previous.dispose) previous.dispose();
+  const next = build();
+  next.setCue(cue);
+  if (shown) next.setPlayhead(shown);
+  return next;
 };
 
 // Specs carry audio times, not steps. The first spec due belongs to the first event, and every other
@@ -159,8 +169,15 @@ const loadText = (storage) => {
   return readSaved(raw).text;
 };
 
-export const createTabPanel = ({ dock, player, guitar, createEditor, storage = window.localStorage }) => {
+const loadUi = (storage) => {
+  let raw = null;
+  try { raw = storage.getItem(UI_KEY); } catch { /* blocked storage uses the defaults */ }
+  return readUi(raw, window.matchMedia(PHONE_PORTRAIT).matches);
+};
+
+export const createTabPanel = ({ dock, root, player, guitar, editors, storage = window.localStorage }) => {
   let text = loadText(storage);
+  let ui = loadUi(storage);
   let playing = false;
   let ending = false;
   let queue = [];
@@ -174,19 +191,16 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   let undoTimer = null;
 
   const transport = make('div', 'transport', dock);
-  const sheet = make('div', 'sheet', dock);
-  sheet.id = 'tab-sheet';
-  const status = make('p', 'dock-status', sheet);
+  const body = make('div', 'dock-body', dock);
+  body.id = 'dock-body';
+  const status = make('p', 'dock-status', body);
   status.id = 'tab-status';
   status.setAttribute('role', 'status');
-  const editorBox = make('div', 'editor', sheet);
+  const editorBox = make('div', 'editor', body);
 
-  const play = button('Play', transport, 'btn btn-play');
+  const play = iconButton({ icon: 'play', label: 'Play', tip: 'Play' }, transport, 'btn btn-play');
   play.setAttribute('aria-describedby', status.id);
-  const back = button('', transport, 'btn btn-back');
-  back.append(backIcon());
-  back.setAttribute('aria-label', 'Back to start');
-  back.title = 'Back to start';
+  const back = iconButton({ icon: 'back', label: 'Back to start', tip: 'Back to start' }, transport);
   const tempoLabel = make('label', 'tempo', transport);
   const tempo = make('input', 'tempo-input', tempoLabel);
   tempo.type = 'number';
@@ -198,13 +212,30 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   tempoLabel.htmlFor = tempo.id;
   tempo.setAttribute('aria-label', 'Tempo in beats per minute');
   make('span', 'tempo-unit', tempoLabel, 'BPM');
+  make('span', 'spacer', transport).setAttribute('aria-hidden', 'true');
   const tools = make('div', 'tools', transport);
-  const open = button('Open', tools);
-  const saveButton = button('Save', tools);
-  const clearButton = button('Clear', tools, 'btn btn-clear');
-  const toggle = button('Tab', transport, 'btn btn-sheet');
-  toggle.setAttribute('aria-controls', sheet.id);
-  toggle.setAttribute('aria-expanded', 'false');
+  const seg = make('fieldset', 'seg', tools);
+  make('legend', null, seg, 'Editor');
+  const radios = EDITOR_LABELS.map(([value, name]) => {
+    const label = make('label', null, seg);
+    const radio = make('input', null, label);
+    radio.type = 'radio';
+    radio.name = 'editor';
+    radio.value = value;
+    radio.checked = value === ui.editor;
+    make('span', null, label, name);
+    return radio;
+  });
+  const open = iconButton({ icon: 'open', label: 'Open a tab file', tip: 'Open' }, tools);
+  const saveButton = iconButton({ icon: 'save', label: 'Save as a text file', tip: 'Save' }, tools);
+  make('span', 'rule', tools).setAttribute('aria-hidden', 'true');
+  const clearButton = iconButton({ icon: 'clear', label: 'Clear the tab', tip: 'Clear' }, tools);
+  const toggle = iconButton(
+    { icon: 'chevron', label: 'Collapse the tab panel', tip: 'Collapse' },
+    transport,
+    'btn btn-ghost btn-toggle tip-end',
+  );
+  toggle.setAttribute('aria-controls', body.id);
   const picker = make('input', null, transport);
   picker.type = 'file';
   picker.accept = '.txt,text/plain';
@@ -224,6 +255,7 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
   };
 
   const undoButton = button('Undo', status, 'btn btn-undo');
+  undoButton.prepend(buildIcon('undo'));
   undoButton.remove();
 
   const dropUndo = () => {
@@ -232,11 +264,19 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     if (document.activeElement === undoButton) editor.focus();
   };
 
-  const editor = createEditor(editorBox, {
+  const editorOptions = {
     getText: () => text,
     setText: (next) => { text = next; message = ''; dropUndo(); persistSoon(); refresh(); },
     onCursor: () => {},
-  });
+  };
+  let editor = editors[ui.editor](editorBox, editorOptions);
+
+  const setPlayState = (isPlaying) => {
+    const label = isPlaying ? 'Stop' : 'Play';
+    play.replaceChildren(buildIcon(isPlaying ? 'stop' : 'play'));
+    play.setAttribute('aria-label', label);
+    play.dataset.tip = label;
+  };
 
   const refresh = () => {
     const parsed = parseTab(text);
@@ -258,7 +298,7 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     shown = null;
     ending = false;
     playing = false;
-    play.textContent = 'Play';
+    setPlayState(false);
     editor.setPlayhead(null);
     refresh();
   };
@@ -302,7 +342,7 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     const from = startStep(parsed, editor.getCue());
     const playable = parsed.events.filter((e) => e.step >= from);
     steps = stepLookup(playable, bpm);
-    play.textContent = 'Stop';
+    setPlayState(true);
     scheduler.start(playable, bpm, from);
     frame = requestAnimationFrame(tick);
   };
@@ -409,15 +449,28 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
   });
 
-  const setSheet = (isOpen) => {
-    dock.classList.toggle('open', isOpen);
+  const applyOpen = (isOpen) => {
+    const label = isOpen ? 'Collapse' : 'Expand';
+    root.dataset.open = String(isOpen);
     toggle.setAttribute('aria-expanded', String(isOpen));
+    toggle.setAttribute('aria-label', `${label} the tab panel`);
+    toggle.dataset.tip = label;
   };
   toggle.addEventListener('click', () => {
-    const isOpen = !dock.classList.contains('open');
-    setSheet(isOpen);
-    if (isOpen) editor.focus();
+    ui = { ...ui, dockOpen: !ui.dockOpen };
+    applyOpen(ui.dockOpen);
+    // Collapsing hides the body and the tools, so focus inside them would be lost.
+    if (!ui.dockOpen && (body.contains(document.activeElement) || tools.contains(document.activeElement))) {
+      toggle.focus();
+    }
+    saveUi(storage, ui);
   });
+  radios.forEach((radio) => radio.addEventListener('change', () => {
+    if (!radio.checked || radio.value === ui.editor) return;
+    ui = { ...ui, editor: radio.value };
+    editor = swapEditor(editor, () => editors[ui.editor](editorBox, editorOptions), shown);
+    saveUi(storage, ui);
+  }));
   dock.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !play.disabled) {
       e.preventDefault();
@@ -425,15 +478,13 @@ export const createTabPanel = ({ dock, player, guitar, createEditor, storage = w
     } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
       e.preventDefault();
       backToStart();
-    } else if (e.key === 'Escape' && dock.classList.contains('open')) {
-      setSheet(false);
-      toggle.focus();
     }
   });
 
   document.addEventListener('focusin', (e) => { lastFocus = e.target; });
   window.addEventListener('pagehide', persist);
 
+  applyOpen(ui.dockOpen);
   refresh();
 
   return {

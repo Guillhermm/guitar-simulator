@@ -20,16 +20,16 @@ const stub = () => {
   });
 };
 
-const browser = (search) => ({
+const browser = () => ({
   document: stub(),
   window: Object.assign(stub(), { localStorage: { getItem: () => null, setItem: () => {} } }),
-  location: { search },
+  location: { get search() { throw new Error('main.js must not read location.search'); } },
   requestAnimationFrame: () => 0,
   cancelAnimationFrame: () => {},
 });
 
 const load = async (search) => {
-  const globals = browser(search);
+  const globals = browser();
   const saved = Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
   Object.entries(globals).forEach(([key, value]) => {
     Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
@@ -41,10 +41,10 @@ const load = async (search) => {
   }
 };
 
-test('main.js loads the whole page without throwing, with the text editor', async () => {
+test('main.js loads the whole page without throwing', async () => {
   await assert.doesNotReject(load(''));
 });
 
-test('main.js loads the whole page without throwing, with the grid editor', async () => {
+test('main.js never reads the address query: ?editor=grid is ignored', async () => {
   await assert.doesNotReject(load('editor=grid'));
 });

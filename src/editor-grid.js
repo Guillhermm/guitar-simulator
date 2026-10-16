@@ -297,6 +297,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     setPlayhead,
     writeFret,
     update: refresh,
+    dispose: flush,
     focus: () => (parsed.blocks.length === 0 ? hint : cellAt(cursor) || hint).focus(),
   };
 };
