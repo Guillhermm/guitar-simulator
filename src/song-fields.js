@@ -16,7 +16,7 @@ export const summaryOf = (meta) => [meta.title, meta.artist].filter(Boolean).joi
 // What Save says when it refuses: the missing keys, in field order.
 export const refusalStatus = (keys) => {
   const parts = FIELDS.filter((f) => keys.includes(f.key) && f.phrase).map((f) => f.phrase);
-  return parts.length ? `Add ${parts.join(' and ')} to save.` : '';
+  return parts.length ? `Add ${parts.join(' and ')} to save or print.` : '';
 };
 
 // The Save gate. Fields are the keys to flag; status is the line for the status area; focus is the

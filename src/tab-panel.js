@@ -202,6 +202,9 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   const status = make('p', 'dock-status', body);
   status.id = 'tab-status';
   status.setAttribute('role', 'status');
+  // A refused Save is shown on the fields themselves; this only announces it to screen readers.
+  const refusal = make('p', 'sr-only', body);
+  refusal.setAttribute('role', 'alert');
   const editorBox = make('div', 'editor', body);
 
   const play = iconButton({ icon: 'play', label: 'Play', tip: 'Play' }, transport, 'btn btn-play');
@@ -320,7 +323,8 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
         refusing = invalid.length > 0;
       }
     }
-    const note = message || statusFor(parsed);
+    refusal.textContent = refusing ? message : '';
+    const note = (refusing ? '' : message) || statusFor(parsed);
     status.replaceChildren();
     if (note) make('span', null, status, note);
     if (undoText !== null) status.append(undoButton);
@@ -477,13 +481,14 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (picker.files[0]) loadFile(picker.files[0]);
     picker.value = '';
   });
-  const trySave = () => {
+  // Save and Print both need the song's title and artist; the arranger is optional.
+  const withSongDetails = (action) => () => {
     const check = saveCheck(readMeta(text));
     if (check.focus === null) {
       clearRefusal();
       message = '';
       refresh();
-      exportFile(text, `${fileBase(readMeta(text), new Date())}.txt`);
+      action();
       return;
     }
     invalid = check.fields;
@@ -493,8 +498,8 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     refresh();
     songFields.focus(check.focus);
   };
-  saveButton.addEventListener('click', trySave);
-  printButton.addEventListener('click', () => printTab());
+  saveButton.addEventListener('click', withSongDetails(() => exportFile(text, `${fileBase(readMeta(text), new Date())}.txt`)));
+  printButton.addEventListener('click', withSongDetails(() => printTab()));
   songFields.toggle.addEventListener('click', () => setMetaOpen(root.dataset.meta !== 'open'));
 
   dock.addEventListener('dragover', (e) => {

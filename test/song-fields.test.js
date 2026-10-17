@@ -61,17 +61,17 @@ test('a second Title line does not change the field: the first line wins', () =>
 test('Save refusal names what is missing and focuses the first of them', () => {
   assert.deepEqual(saveCheck({ title: '', artist: '', arranger: '' }), {
     fields: ['title', 'artist'],
-    status: 'Add a song title and an artist to save.',
+    status: 'Add a song title and an artist to save or print.',
     focus: 'title',
   });
   assert.deepEqual(saveCheck({ title: 'T', artist: '', arranger: '' }), {
     fields: ['artist'],
-    status: 'Add an artist to save.',
+    status: 'Add an artist to save or print.',
     focus: 'artist',
   });
   assert.deepEqual(saveCheck({ title: '', artist: 'A', arranger: '' }), {
     fields: ['title'],
-    status: 'Add a song title to save.',
+    status: 'Add a song title to save or print.',
     focus: 'title',
   });
 });
@@ -85,7 +85,7 @@ test('whitespace alone is missing', () => {
 });
 
 test('the status follows what is still missing, in field order', () => {
-  assert.equal(refusalStatus(['artist', 'title']), 'Add a song title and an artist to save.');
-  assert.equal(refusalStatus(['artist']), 'Add an artist to save.');
+  assert.equal(refusalStatus(['artist', 'title']), 'Add a song title and an artist to save or print.');
+  assert.equal(refusalStatus(['artist']), 'Add an artist to save or print.');
   assert.equal(refusalStatus([]), '');
 });
