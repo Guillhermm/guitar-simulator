@@ -101,7 +101,7 @@ html, body {
   flex-direction: column;
   justify-content: flex-end;
   gap: 0.25rem;
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.75rem;
   box-sizing: border-box;
   pointer-events: none;
   transition: transform 240ms var(--ease-close);
@@ -154,12 +154,12 @@ html, body {
 }
 
 .credit-icons { position: relative; display: inline-flex; align-items: center; gap: 0.125rem; }
-/* 2.75rem tall for the finger, pulled back with negative margins so the row keeps its height; 1.75rem
-   wide keeps the icons close while staying above the 24px minimum target. */
+/* 2.75rem tall for the finger, pulled back with negative margins so the row keeps its height; 1.5rem
+   (24px) wide is the minimum target size and keeps the icons close. */
 .credit a.ilink {
   display: inline-grid;
   place-items: center;
-  width: 1.75rem;
+  width: 1.5rem;
   height: 2.75rem;
   margin: -0.75rem 0;
   color: #000;
@@ -167,10 +167,10 @@ html, body {
   pointer-events: auto;
 }
 .credit a.ilink:focus-visible { outline: 2px solid currentColor; outline-offset: -0.25rem; border-radius: 0.5rem; }
-.mark { display: block; height: 1.25rem; width: auto; }
-.mark-github { width: 1.25rem; fill: currentColor; stroke: none; }
+.mark { display: block; height: 1rem; width: auto; }
+.mark-github { width: 1rem; fill: currentColor; stroke: none; }
 .mark-linkedin { aspect-ratio: 840 / 779; }
-.mark-profile { width: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.mark-profile { width: 1rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .mark.on-dark { display: none; }
 @media (prefers-color-scheme: dark) {
   .credit a.ilink { color: #fff; }

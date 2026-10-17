@@ -115,7 +115,7 @@ test('beforeprint titles the page with the file name and afterprint restores it'
   const win = fakeWin();
   installPrint({ getText: () => sample, win, doc });
   win.handlers.beforeprint();
-  assert.match(doc.title, /^Test Song - Someone \d{4}-\d\d-\d\d_\d{6}$/);
+  assert.match(doc.title, /^test-song_someone_\d{8}-\d{6}$/);
   assert.equal(doc.body.children.length, 1);
   win.handlers.afterprint();
   assert.equal(doc.title, 'Guitar Simulator');
@@ -128,7 +128,7 @@ test('printing twice before afterprint keeps the original title, and an empty ta
   installPrint({ getText: () => '', win, doc });
   win.handlers.beforeprint();
   win.handlers.beforeprint();
-  assert.match(doc.title, /^Untitled/);
+  assert.match(doc.title, /^untitled_/);
   win.handlers.afterprint();
   assert.equal(doc.title, 'Guitar Simulator');
 });
@@ -138,7 +138,7 @@ test('printTab calls window.print and the returned function removes the listener
   const win = fakeWin();
   const off = installPrint({ getText: () => '', win, doc });
   printTab(win);
-  assert.match(doc.title, /^Untitled/);
+  assert.match(doc.title, /^untitled_/);
   off();
   assert.deepEqual(Object.keys(win.handlers), []);
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeImported, exportFile, readImportedFile, fileBase, missingFields } from '../src/files.js';
+import { normalizeImported, exportFile, readImportedFile, fileBase, slug, missingFields } from '../src/files.js';
 import { MAX_BYTES } from '../src/storage.js';
 
 test('normalizeImported strips a BOM and converts CRLF and lone CR to LF', () => {
@@ -57,41 +57,40 @@ test('exportFile defaults the name to tab.txt', () => {
 });
 
 const D = new Date(2026, 9, 16, 18, 5, 9);
-const STAMP = '2026-10-16_180509';
-const bytes = (s) => new TextEncoder().encode(s).length;
+const STAMP = '20261016-180509';
 
-test('fileBase: title - artist plus a local timestamp', () => {
-  assert.equal(fileBase({ title: 'Wish You Were Here', artist: 'Pink Floyd' }, D), `Wish You Were Here - Pink Floyd ${STAMP}`);
+test('fileBase: title_artist_stamp in lowercase ASCII', () => {
+  assert.equal(fileBase({ title: 'Wish You Were Here', artist: 'Pink Floyd' }, D), `wish-you-were-here_pink-floyd_${STAMP}`);
 });
 
-test('fileBase keeps accents and gives NFC from NFC and NFD input', () => {
-  const nfc = fileBase({ title: 'Canção', artist: 'X' }, D);
-  assert.equal(fileBase({ title: 'Canção', artist: 'X' }, D), nfc);
-  assert.equal(nfc, `Canção - X ${STAMP}`);
+test('slug drops accents from NFC and NFD input alike and folds letters that do not decompose', () => {
+  assert.equal(slug('Canção'), 'cancao');
+  assert.equal(slug('Canção'.normalize('NFD')), 'cancao');
+  assert.equal(slug('Straße Øresund Łódź Ærø'), 'strasse-oresund-lodz-aero');
+  assert.equal(slug('Mötley Crüe'), 'motley-crue');
 });
 
-test('fileBase replaces reserved runs with one space and trims spaces and dots', () => {
-  assert.equal(fileBase({ title: 'AC/DC: Live?', artist: '' }, D), `AC DC Live ${STAMP}`);
-  assert.equal(fileBase({ title: '..x..', artist: ' . ' }, D), `x ${STAMP}`);
-  assert.equal(fileBase({ title: 'CON', artist: 'NUL' }, D), `CON - NUL ${STAMP}`);
-  assert.equal(fileBase({ title: 'a‮b\u0001c', artist: '' }, D), `a b c ${STAMP}`);
+test('slug turns every run of other characters into one hyphen and trims them', () => {
+  assert.equal(slug('AC/DC: Live?'), 'ac-dc-live');
+  assert.equal(slug('..x..'), 'x');
+  assert.equal(slug('  Nothing   Else -- Matters!  '), 'nothing-else-matters');
+  assert.equal(slug('a\u202eb\u0001c'), 'a-b-c');
+  assert.equal(slug('Rock & Roll (Live) #2'), 'rock-roll-live-2');
 });
 
-test('fileBase: empty title is Untitled, missing artist is left out', () => {
-  assert.equal(fileBase({ title: '', artist: 'Band' }, D), `Untitled - Band ${STAMP}`);
-  assert.equal(fileBase({ title: '???', artist: '' }, D), `Untitled ${STAMP}`);
-  assert.equal(fileBase({}, D), `Untitled ${STAMP}`);
-  assert.equal(fileBase({ title: 'Song' }, D), `Song ${STAMP}`);
+test('fileBase: empty or non-Latin title is untitled, missing artist is left out', () => {
+  assert.equal(fileBase({ title: '', artist: 'Band' }, D), `untitled_band_${STAMP}`);
+  assert.equal(fileBase({ title: '???', artist: '' }, D), `untitled_${STAMP}`);
+  assert.equal(fileBase({}, D), `untitled_${STAMP}`);
+  assert.equal(fileBase({ title: 'Song' }, D), `song_${STAMP}`);
+  assert.equal(fileBase({ title: '日本の歌', artist: 'X' }, D), `untitled_x_${STAMP}`);
 });
 
-test('fileBase cuts long multibyte names on a code point boundary under 255 bytes', () => {
-  for (const ch of ['ã', '日', '😀']) {
-    const name = `${fileBase({ title: ch.repeat(300), artist: ch.repeat(300) }, D)}.txt`;
-    assert.ok(bytes(name) <= 255, `${ch}: ${bytes(name)}`);
-    assert.ok(!name.includes('�'));
-    assert.equal(name, name.normalize('NFC'));
-    assert.ok(name.endsWith(` ${STAMP}.txt`));
-  }
+test('fileBase stays short and safe on every file system', () => {
+  const name = `${fileBase({ title: 'á'.repeat(300), artist: 'b'.repeat(300) }, D)}.txt`;
+  assert.ok(name.length <= 200, String(name.length));
+  assert.match(name, /^[a-z0-9_-]+\.txt$/);
+  assert.ok(!/-_|_-|--/.test(name));
 });
 
 test('missingFields lists the missing title and artist', () => {

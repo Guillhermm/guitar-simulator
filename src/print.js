@@ -117,5 +117,5 @@ export const installPrint = ({ getText, win = window, doc = document }) => {
   };
 };
 
-// What the dock's Print button calls. Printing never refuses: an untitled tab prints as "Untitled".
+// What the dock's Print button calls. Printing never refuses: an untitled tab gets the file name "untitled_...".
 export const printTab = (win = window) => win.print();
