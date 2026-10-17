@@ -17,14 +17,12 @@
   --playhead: color-mix(in srgb, #D79B55 25%, transparent);
   --playhead-solid: color-mix(in srgb, #D79B55 25%, var(--dock-bg));
   --bar-h: 3.5rem;
-  --body-h: 14rem;
+  --body-h: 16rem;
   --reserve: 3.5rem;
   --edge: 0.5rem;
-  --open-h: var(--body-h);
   --open-w: 0px;
   --k: 1;
-  --guitar-shift: translateY(calc(var(--open-h) / -2));
-  --foot-shift: translateY(calc(var(--open-h) * -1));
+  --err: #A12B1E;
   --ease-open: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-close: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -40,6 +38,7 @@
     --dock-ink: #E9D8AE;
     --dock-text: #E9D8AE;
     --dock-line: color-mix(in srgb, #E9D8AE 50%, transparent);
+    --err: #FF9D8A;
   }
 }
 
@@ -55,10 +54,15 @@ html, body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* Declared here, not on :root, so they follow a --body-h that changes on .app (the phone's open
+   fields); a custom property resolves its var() where it is declared. */
 .app {
   position: relative;
   height: 100vh;
   height: 100dvh;
+  --open-h: var(--body-h);
+  --guitar-shift: translateY(calc(var(--open-h) / -2));
+  --foot-shift: translateY(calc(var(--open-h) * -1));
 }
 
 .stage {
@@ -143,18 +147,31 @@ html, body {
   color: color-mix(in srgb, var(--text) 75%, transparent);
   pointer-events: none;
 }
-.credit-links { white-space: nowrap; }
-.credit a {
-  display: inline-block;
-  padding: 0.625rem 0.375rem;
-  margin: -0.625rem -0.375rem;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
+
+.credit-sentence { padding-right: 0.25rem; }
+.credit-icons { position: relative; display: inline-flex; align-items: center; }
+/* 2.75rem wide and tall for the finger, pulled back with negative margins so the row keeps its height. */
+.credit a.ilink {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.75rem 0;
+  color: #000;
+  text-decoration: none;
   pointer-events: auto;
 }
-.credit a:hover { color: var(--text); }
-.credit a:focus-visible { outline: 2px solid currentColor; outline-offset: -0.125rem; border-radius: 0.25rem; }
+.credit a.ilink:focus-visible { outline: 2px solid currentColor; outline-offset: -0.25rem; border-radius: 0.5rem; }
+.mark { display: block; height: 1.25rem; width: auto; }
+.mark-github { width: 1.25rem; fill: currentColor; stroke: none; }
+.mark-linkedin { aspect-ratio: 840 / 779; }
+.mark-profile { width: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.mark.on-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .credit a.ilink { color: #fff; }
+  .mark.on-light { display: none; }
+  .mark.on-dark { display: block; }
+}
 
 .rim { stroke: var(--rim); stroke-opacity: 0.55; }
 .drop { opacity: var(--drop-opacity); }
@@ -328,13 +345,11 @@ html, body {
 .tempo { display: flex; align-items: center; gap: 0.375rem; font-size: 0.875rem; }
 .tempo-input { width: 4.5rem; padding: 0 0.5rem; text-align: center; font-size: 1rem; }
 
-/* aria-label names the button; data-tip is only the visual tooltip */
-.btn[data-tip]::after {
+/* One tooltip for everything that carries data-tip. The control's aria-label is its name; the tip is
+   only the visual. Each component places it: buttons above themselves, credit links beside the row. */
+[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
-  bottom: calc(100% + 0.375rem);
-  left: 50%;
-  transform: translateX(-50%);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   background: var(--dock-text);
@@ -344,12 +359,24 @@ html, body {
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms linear;
+  z-index: 3;
+}
+@media (hover: hover) {
+  [data-tip]:hover::after { opacity: 1; transition-delay: 450ms; }
+}
+[data-tip]:focus-visible::after { opacity: 1; transition-delay: 0s; }
+.btn[data-tip]::after {
+  bottom: calc(100% + 0.375rem);
+  left: 50%;
+  transform: translateX(-50%);
 }
 .btn[data-tip].tip-end::after { left: auto; right: 0; transform: none; }
-@media (hover: hover) {
-  .btn[data-tip]:hover::after { opacity: 1; transition-delay: 450ms; }
+/* Beside the icon row, in the empty stage to its right: nothing is under it, on a phone either. */
+.credit-icons [data-tip]::after {
+  top: 50%;
+  left: calc(100% + 0.5rem);
+  transform: translateY(-50%);
 }
-.btn[data-tip]:focus-visible::after { opacity: 1; transition-delay: 0s; }
 
 .seg {
   display: inline-flex;
@@ -386,6 +413,54 @@ html, body {
   font: 0.875rem/1.5rem system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .dock-status:empty { display: none; }
+.meta {
+  flex: none;
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr;
+  gap: 0.75rem;
+  padding: 0.5rem var(--pad) 0.375rem;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.field { display: flex; flex-direction: column; min-width: 0; }
+.field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-height: 1rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.field [hidden] { display: none; }
+.field-label { font-weight: 600; }
+.field-note { opacity: 0.75; }
+.field-error { color: var(--err); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field input {
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0 0.625rem;
+  font: 0.9375rem system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--dock-text);
+  background: transparent;
+  border: 1px solid var(--dock-ink);
+  border-radius: 0.375rem;
+}
+.field input[aria-invalid="true"] { border-color: var(--err); box-shadow: inset 0 0 0 1px var(--err); }
+.field input:focus-visible { outline-offset: 0; }
+.meta-toggle { display: none; }
+.summary {
+  flex: 1;
+  min-width: 0;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.8;
+}
+.app[data-open="true"] .summary { display: none; }
+.app[data-open="false"] .spacer { display: none; }
+
 .editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 .text-editor { position: relative; flex: 1; min-height: 0; overflow: hidden; }
@@ -427,20 +502,21 @@ html, body {
   min-height: 0;
   position: relative;
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   align-items: flex-start;
-  padding: 0.25rem var(--pad);
+  padding: 0.25rem var(--pad) 0;
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: thin;
 }
 .grid-block { flex: none; }
 .grid-row { display: flex; height: 1.5rem; }
-.grid-label { width: 1.5rem; text-align: center; line-height: 1.5rem; }
+.grid-label { width: 1rem; text-align: center; line-height: 1.5rem; }
 .cell {
   position: relative;
   display: grid;
   place-items: center;
-  width: 1.5rem;
+  width: 1rem;
   height: 1.5rem;
   background: var(--dock-bg);
   line-height: 1;
@@ -455,7 +531,11 @@ html, body {
   height: 1px;
   background: var(--dock-line);
 }
-.cell-fret { position: relative; background: inherit; }
+.cell-fret { position: relative; z-index: 1; background: inherit; }
+/* A two-digit fret is wider than a 1rem cell: it starts at its own column and runs over the empty cell
+   after it, above that cell's background. */
+@media (pointer: fine) { .cell-fret.wide { justify-self: start; } }
+@media (pointer: coarse) { .grid-label, .cell { width: 1.5rem; } }
 .cell.playing { background: var(--playhead-solid); }
 .cell.cursor { outline: 1px dotted var(--dock-ink); outline-offset: -1px; }
 .cell:focus-visible { outline: 2px solid var(--dock-ink); outline-offset: -2px; z-index: 1; }
@@ -473,7 +553,9 @@ html, body {
 @media (orientation: portrait) and (max-width: 48rem) {
   /* The guitar stands upright. Its layout box keeps the landscape shape and rotates about its
      center, so the width below is the guitar's length down the screen. */
-  :root { --body-h: 38dvh; --open-h: calc(var(--body-h) + 3rem); }
+  :root { --body-h: 44dvh; }
+  .app { --open-h: calc(var(--body-h) + 3rem); }
+  .app[data-meta="open"] { --body-h: 64dvh; }
   .guitar {
     width: min(calc(100dvh - var(--bar-h) - var(--reserve)), calc((100vw - 2 * var(--edge)) * 1240 / 480));
     transform: rotate(90deg);
@@ -511,8 +593,10 @@ html, body {
     --rail-w: 3.5rem;
     --body-w: 18rem;
     --reserve: 3rem;
-    --open-h: 0px;
     --open-w: var(--body-w);
+  }
+  .app {
+    --open-h: 0px;
     --guitar-shift: translateX(calc(var(--open-w) / -2));
     --foot-shift: translateX(calc(var(--open-w) / -2));
   }
@@ -584,10 +668,53 @@ html, body {
   }
 }
 
+/* Phone portrait: the fields fold into a summary row that opens them, Title on its own line. */
+@media (orientation: portrait) and (max-width: 48rem) {
+  .meta { display: none; grid-template-columns: 1fr 1fr; row-gap: 0.25rem; }
+  .meta .field:first-child { grid-column: 1 / -1; }
+  .app[data-meta="open"] .meta { display: grid; }
+  .meta-toggle {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 var(--pad);
+    font: 0.875rem system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+  .meta-toggle .mt-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta-toggle .icon { transition: transform 200ms; }
+  .app[data-meta="open"] .meta-toggle .icon { transform: rotate(180deg); }
+  .summary { display: none !important; }
+}
+
+/* Short landscape: the body is 18rem wide, so the fields stack as on a phone, always shown. */
+@media (orientation: landscape) and (max-height: 30rem) {
+  .meta { grid-template-columns: 1fr 1fr; row-gap: 0.25rem; }
+  .meta .field:first-child { grid-column: 1 / -1; }
+  .summary { display: none; }
+  .app[data-open="false"] .spacer { display: block; }
+  /* Four tools now share 18rem with the switch, so the rail row gives up its rule and some air. */
+  .tools { padding: 0 0.25rem; gap: 0.125rem; }
+  .tools .rule { display: none; }
+  .credit-icons [data-tip]::after {
+    top: auto;
+    bottom: calc(100% + 0.25rem);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .text-area, .grid { scroll-behavior: auto; }
-  .stage-inner, .stage-foot, .dock-body, .tools, .btn-toggle .icon { transition: none !important; }
-  .btn[data-tip]::after { transition-duration: 0s; }
+  .stage-inner, .stage-foot, .dock-body, .tools, .btn-toggle .icon, .meta-toggle .icon { transition: none !important; }
+  [data-tip]::after { transition-duration: 0s; }
 }
 
 .print-root { display: none; }

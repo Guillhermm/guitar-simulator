@@ -1,8 +1,11 @@
 import { parseTab, withTempo, emptyTab, readMeta } from './tab.js';
+import { buildSongFields, summaryOf, refusalStatus, saveCheck, textWithField } from './song-fields.js';
+import { missingFields } from './files.js';
 import { createScheduler } from './scheduler.js';
 import { KEY, UI_KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, readUi, save, saveUi } from './storage.js';
 import { buildIcon } from './icons.js';
 import { exportFile, readImportedFile, fileBase } from './files.js';
+import { printTab } from './print.js';
 
 const SAVE_DELAY_MS = 300;
 const UNDO_MS = 8000;
@@ -189,10 +192,13 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   let message = '';
   let undoText = null;
   let undoTimer = null;
+  let invalid = [];
+  let refusing = false;
 
   const transport = make('div', 'transport', dock);
   const body = make('div', 'dock-body', dock);
   body.id = 'dock-body';
+  const songFields = buildSongFields(body, { onInput: (key, value) => onFieldInput(key, value) });
   const status = make('p', 'dock-status', body);
   status.id = 'tab-status';
   status.setAttribute('role', 'status');
@@ -213,6 +219,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   tempo.setAttribute('aria-label', 'Tempo in beats per minute');
   make('span', 'tempo-unit', tempoLabel, 'BPM');
   make('span', 'spacer', transport).setAttribute('aria-hidden', 'true');
+  const summary = make('span', 'summary', transport);
   const tools = make('div', 'tools', transport);
   const seg = make('fieldset', 'seg', tools);
   make('legend', null, seg, 'Editor');
@@ -228,6 +235,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   });
   const open = iconButton({ icon: 'open', label: 'Open a tab file', tip: 'Open' }, tools);
   const saveButton = iconButton({ icon: 'save', label: 'Save as a text file', tip: 'Save' }, tools);
+  const printButton = iconButton({ icon: 'print', label: 'Print the tab', tip: 'Print' }, tools);
   make('span', 'rule', tools).setAttribute('aria-hidden', 'true');
   const clearButton = iconButton({ icon: 'clear', label: 'Clear the tab', tip: 'Clear' }, tools);
   const toggle = iconButton(
@@ -264,6 +272,26 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (document.activeElement === undoButton) editor.focus();
   };
 
+  const clearRefusal = () => {
+    invalid = [];
+    refusing = false;
+    songFields.setInvalid([]);
+  };
+
+  const setMetaOpen = (isOpen) => {
+    root.dataset.meta = isOpen ? 'open' : 'closed';
+    songFields.toggle.setAttribute('aria-expanded', String(isOpen));
+  };
+
+  const onFieldInput = (key, value) => {
+    text = textWithField(text, key, value);
+    message = '';
+    dropUndo();
+    editor.update();
+    persistSoon();
+    refresh();
+  };
+
   const editorOptions = {
     getText: () => text,
     setText: (next) => { text = next; message = ''; dropUndo(); persistSoon(); refresh(); },
@@ -280,6 +308,18 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
 
   const refresh = () => {
     const parsed = parseTab(text);
+    const meta = readMeta(text);
+    songFields.show(meta);
+    summary.textContent = summaryOf(meta);
+    if (invalid.length) {
+      const stillMissing = missingFields(meta).fields;
+      invalid = invalid.filter((key) => stillMissing.includes(key));
+      songFields.setInvalid(invalid);
+      if (refusing) {
+        message = refusalStatus(invalid);
+        refusing = invalid.length > 0;
+      }
+    }
     const note = message || statusFor(parsed);
     status.replaceChildren();
     if (note) make('span', null, status, note);
@@ -351,6 +391,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (playing) stop();
     text = next;
     message = '';
+    clearRefusal();
     dropUndo();
     editor.update();
     editor.setCue(0);
@@ -375,6 +416,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     const fromButton = document.activeElement === clearButton;
     if (playing) stop();
     dropUndo();
+    clearRefusal();
     text = cleared.text;
     undoText = cleared.previous;
     message = 'Tab cleared.';
@@ -394,6 +436,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (undoText === null) return;
     text = undoText;
     message = '';
+    clearRefusal();
     dropUndo();
     editor.update();
     editor.setCue(0);
@@ -434,7 +477,25 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (picker.files[0]) loadFile(picker.files[0]);
     picker.value = '';
   });
-  saveButton.addEventListener('click', () => exportFile(text, `${fileBase(readMeta(text), new Date())}.txt`));
+  const trySave = () => {
+    const check = saveCheck(readMeta(text));
+    if (check.focus === null) {
+      clearRefusal();
+      message = '';
+      refresh();
+      exportFile(text, `${fileBase(readMeta(text), new Date())}.txt`);
+      return;
+    }
+    invalid = check.fields;
+    refusing = true;
+    message = check.status;
+    setMetaOpen(true);
+    refresh();
+    songFields.focus(check.focus);
+  };
+  saveButton.addEventListener('click', trySave);
+  printButton.addEventListener('click', () => printTab());
+  songFields.toggle.addEventListener('click', () => setMetaOpen(root.dataset.meta !== 'open'));
 
   dock.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -485,6 +546,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   window.addEventListener('pagehide', persist);
 
   applyOpen(ui.dockOpen);
+  setMetaOpen(false);
   refresh();
 
   return {

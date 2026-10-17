@@ -110,6 +110,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     const label = cellText(fret);
     const span = node.firstChild;
     if (span.textContent !== label) span.textContent = label;
+    span.classList.toggle('wide', label.length > 1);
     node.setAttribute('aria-label', ariaLabel(c, fret, parsed.blocks.length > 1));
   };
 
