@@ -478,3 +478,13 @@ test('withMeta is idempotent, round-trips with readMeta and never touches a late
 test('a document without header lines is unchanged by an empty withMeta', () => {
   assert.equal(withMeta(FIXTURE, { title: '', artist: '', arranger: '' }), FIXTURE);
 });
+
+test('withTempo places a new Tempo line after the metadata lines, in either order of writing', () => {
+  const body = `lyric\n${emptyTab()}\n`;
+  const a = withMeta(withTempo(body, 100), { title: 'T', artist: 'A', arranger: 'Z' });
+  const b = withTempo(withMeta(body, { title: 'T', artist: 'A', arranger: 'Z' }), 100);
+  assert.equal(a, `Title: T\nArtist: A\nArranged by: Z\nTempo: 100\n${body}`);
+  assert.equal(b, a);
+  assert.equal(withTempo(a, 90), a.replace('Tempo: 100', 'Tempo: 90'));
+  assert.equal(withTempo('abc', 90), 'Tempo: 90\nabc');
+});

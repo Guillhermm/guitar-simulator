@@ -198,15 +198,6 @@ export const parseTab = (text) => {
 
 export const readTempo = (text) => tempoOf(splitText(text));
 
-export const withTempo = (text, bpm) => {
-  const line = `Tempo: ${Math.round(bpm)}`;
-  const lines = text.split('\n');
-  const i = lines.findIndex((l) => TEMPO_LINE.test(l) && Number(TEMPO_LINE.exec(l)[1]) > 0);
-  if (i < 0) return `${line}\n${text}`;
-  lines[i] = line;
-  return lines.join('\n');
-};
-
 const META_LINE = /^\s*(title|artist|arranged\s+by)\s*:(.*)$/i;
 const META_KEYS = ['title', 'artist', 'arranger'];
 const META_NAMES = { title: 'Title', artist: 'Artist', arranger: 'Arranged by' };
@@ -241,6 +232,14 @@ const headerOrder = (l) => {
   return m ? META_KEYS.indexOf(metaKeyOf(m[1].replace(/\s+/g, ' '))) : META_KEYS.length;
 };
 
+const insertHeader = (lines, line, order) => {
+  let run = 0;
+  while (run < lines.length && isHeaderLine(lines[run])) run += 1;
+  let pos = 0;
+  while (pos < run && headerOrder(lines[pos]) <= order) pos += 1;
+  return [...lines.slice(0, pos), line, ...lines.slice(pos)];
+};
+
 // Only the named fields change; a missing field is left alone. A new line goes into the run of header
 // lines at the top of the document, in the order Title, Artist, Arranged by, Tempo.
 export const withMeta = (text, meta) => {
@@ -253,13 +252,18 @@ export const withMeta = (text, meta) => {
       if (!value) lines.splice(at.index, 1);
       else if (at.value !== value) lines[at.index] = `${META_NAMES[key]}: ${value}`;
     } else if (value) {
-      let run = 0;
-      while (run < lines.length && isHeaderLine(lines[run])) run += 1;
-      let pos = 0;
-      while (pos < run && headerOrder(lines[pos]) <= order) pos += 1;
-      lines = [...lines.slice(0, pos), `${META_NAMES[key]}: ${value}`, ...lines.slice(pos)];
+      lines = insertHeader(lines, `${META_NAMES[key]}: ${value}`, order);
     }
   });
+  return lines.join('\n');
+};
+
+export const withTempo = (text, bpm) => {
+  const line = `Tempo: ${Math.round(bpm)}`;
+  const lines = text.split('\n');
+  const i = lines.findIndex((l) => TEMPO_LINE.test(l) && Number(TEMPO_LINE.exec(l)[1]) > 0);
+  if (i < 0) return insertHeader(lines, line, META_KEYS.length).join('\n');
+  lines[i] = line;
   return lines.join('\n');
 };
 
