@@ -6,8 +6,7 @@ const encoder = new TextEncoder();
 
 export const missingFields = (meta) => {
   const fields = ['title', 'artist'].filter((k) => !String(meta?.[k] ?? '').trim());
-  const message = fields.length === 2 ? "Add the song's title and artist" : fields.length ? `Add the song's ${fields[0]}` : '';
-  return { fields, message };
+  return { fields };
 };
 
 const cleanPart = (value) =>

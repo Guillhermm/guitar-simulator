@@ -5,6 +5,19 @@ const ROWS_IN_BLOCK = 6;
 const PLAYHEAD_FRACTION = 0.3;
 const CARET_ADVANCE = 2;
 
+// Where a caret at `at` belongs once `before` became `after`: a change wholly above it (a header
+// line written from the song fields) carries it along, so it stays on the same character.
+export const keptCaret = (before, after, at) => {
+  const most = Math.min(before.length, after.length);
+  let head = 0;
+  while (head < most && before[head] === after[head]) head += 1;
+  let tail = 0;
+  while (tail < most - head && before[before.length - 1 - tail] === after[after.length - 1 - tail]) tail += 1;
+  if (at <= head) return at;
+  if (at >= before.length - tail) return at + after.length - before.length;
+  return Math.min(at, after.length - tail);
+};
+
 export const createEditor = (container, { getText, setText, onCursor = () => {} }) => {
   container.replaceChildren();
   const wrap = document.createElement('div');
@@ -95,9 +108,11 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
 
   const update = () => {
     if (area.value === getText()) return;
+    const before = area.value;
     const at = area.selectionStart;
     area.value = getText();
-    area.setSelectionRange(at, at);
+    const kept = keptCaret(before, area.value, at);
+    area.setSelectionRange(kept, kept);
   };
 
   const getCue = () => cueStep(parsedNow(), area.value, area.selectionStart);

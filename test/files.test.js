@@ -94,9 +94,9 @@ test('fileBase cuts long multibyte names on a code point boundary under 255 byte
   }
 });
 
-test('missingFields lists title and artist and words the message', () => {
-  assert.deepEqual(missingFields({ title: 'a', artist: 'b' }), { fields: [], message: '' });
-  assert.deepEqual(missingFields({ title: '', artist: '' }), { fields: ['title', 'artist'], message: "Add the song's title and artist" });
-  assert.deepEqual(missingFields({ title: 'a', artist: ' ' }), { fields: ['artist'], message: "Add the song's artist" });
-  assert.deepEqual(missingFields({ artist: 'b' }), { fields: ['title'], message: "Add the song's title" });
+test('missingFields lists the missing title and artist', () => {
+  assert.deepEqual(missingFields({ title: 'a', artist: 'b' }), { fields: [] });
+  assert.deepEqual(missingFields({ title: '', artist: '' }), { fields: ['title', 'artist'] });
+  assert.deepEqual(missingFields({ title: 'a', artist: ' ' }), { fields: ['artist'] });
+  assert.deepEqual(missingFields({ artist: 'b' }), { fields: ['title'] });
 });
