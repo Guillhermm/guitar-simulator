@@ -1,8 +1,8 @@
-import { parseTab, withTempo, emptyTab } from './tab.js';
+import { parseTab, withTempo, emptyTab, readMeta } from './tab.js';
 import { createScheduler } from './scheduler.js';
 import { KEY, UI_KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, readUi, save, saveUi } from './storage.js';
 import { buildIcon } from './icons.js';
-import { exportFile, readImportedFile } from './files.js';
+import { exportFile, readImportedFile, fileBase } from './files.js';
 
 const SAVE_DELAY_MS = 300;
 const UNDO_MS = 8000;
@@ -434,7 +434,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (picker.files[0]) loadFile(picker.files[0]);
     picker.value = '';
   });
-  saveButton.addEventListener('click', () => exportFile(text, 'tab.txt'));
+  saveButton.addEventListener('click', () => exportFile(text, `${fileBase(readMeta(text), new Date())}.txt`));
 
   dock.addEventListener('dragover', (e) => {
     e.preventDefault();

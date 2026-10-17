@@ -207,6 +207,62 @@ export const withTempo = (text, bpm) => {
   return lines.join('\n');
 };
 
+const META_LINE = /^\s*(title|artist|arranged\s+by)\s*:(.*)$/i;
+const META_KEYS = ['title', 'artist', 'arranger'];
+const META_NAMES = { title: 'Title', artist: 'Artist', arranger: 'Arranged by' };
+const META_MAX = 200;
+const metaKeyOf = (name) => (/^arranged/i.test(name) ? 'arranger' : name.toLowerCase());
+
+const cleanMeta = (value) => {
+  const flat = String(value ?? '').replace(/\s+/g, ' ').replace(/[\p{Cc}\p{Cf}]/gu, '');
+  return Array.from(flat.replace(/\s+/g, ' ').trim()).slice(0, META_MAX).join('').trim();
+};
+
+// First line per key wins; later ones stay plain text. Maps key to { index, value }.
+const metaLines = (lines) => {
+  const found = {};
+  lines.forEach((line, index) => {
+    const m = META_LINE.exec(line);
+    if (!m) return;
+    const key = metaKeyOf(m[1].replace(/\s+/g, ' '));
+    if (!found[key]) found[key] = { index, value: cleanMeta(m[2]) };
+  });
+  return found;
+};
+
+export const readMeta = (text) => {
+  const found = metaLines(text.split('\n'));
+  return Object.fromEntries(META_KEYS.map((k) => [k, found[k]?.value ?? '']));
+};
+
+const isHeaderLine = (l) => META_LINE.test(l) || (TEMPO_LINE.test(l) && Number(TEMPO_LINE.exec(l)[1]) > 0);
+const headerOrder = (l) => {
+  const m = META_LINE.exec(l);
+  return m ? META_KEYS.indexOf(metaKeyOf(m[1].replace(/\s+/g, ' '))) : META_KEYS.length;
+};
+
+// Only the named fields change; a missing field is left alone. A new line goes into the run of header
+// lines at the top of the document, in the order Title, Artist, Arranged by, Tempo.
+export const withMeta = (text, meta) => {
+  let lines = text.split('\n');
+  META_KEYS.forEach((key, order) => {
+    if (!(key in meta)) return;
+    const value = cleanMeta(meta[key]);
+    const at = metaLines(lines)[key];
+    if (at) {
+      if (!value) lines.splice(at.index, 1);
+      else if (at.value !== value) lines[at.index] = `${META_NAMES[key]}: ${value}`;
+    } else if (value) {
+      let run = 0;
+      while (run < lines.length && isHeaderLine(lines[run])) run += 1;
+      let pos = 0;
+      while (pos < run && headerOrder(lines[pos]) <= order) pos += 1;
+      lines = [...lines.slice(0, pos), `${META_NAMES[key]}: ${value}`, ...lines.slice(pos)];
+    }
+  });
+  return lines.join('\n');
+};
+
 export const emptyTab = (width = 32) =>
   LABELS.map((label) => `${label}|${'-'.repeat(width)}|`).join('\n');
 

@@ -5,7 +5,7 @@
   "description": "A classical guitar you play in the browser, with plucked-string synthesis.",
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --test-timeout=30000",
     "serve": "python3 tools/serve.py 8417"
   }
 }

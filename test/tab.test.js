@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { parseTab, lexLine, HARMONIC_SEMITONES, readTempo, withTempo, setFret, emptyTab, appendBlock, landedCol } from '../src/tab.js';
+import { parseTab, lexLine, HARMONIC_SEMITONES, readTempo, withTempo, readMeta, withMeta, setFret, emptyTab, appendBlock, landedCol } from '../src/tab.js';
 
 const FIXTURE = [
   'Some Song - Some Artist',
@@ -429,4 +429,52 @@ test('a hammer-on cannot reach across a block boundary: the first note of the ne
   const block = (g) => ['e|----|', 'B|----|', g, 'D|----|', 'A|----|', 'E|----|'].join('\n');
   const tab = parseTab(`${block('G|--5h|')}\n\n${block('G|h7--|')}`);
   assert.deepEqual(tab.events.map((e) => e.notes), [[{ row: 2, fret: 5 }], [{ row: 2, fret: 7 }]]);
+});
+
+test('readMeta reads the header lines, case-insensitive, first line wins, colon required', () => {
+  const text = [' TITLE :  Canção   do\tmar ', 'artist: A', 'Arranged   by:Me', 'Title: second', 'Artist is a lyric', 'Tempo: 90'].join('\n');
+  assert.deepEqual(readMeta(text), { title: 'Canção do mar', artist: 'A', arranger: 'Me' });
+  assert.deepEqual(readMeta('Artist - Title\nArtist lyric'), { title: '', artist: '', arranger: '' });
+  assert.deepEqual(readMeta('Title:   \nArtist:'), { title: '', artist: '', arranger: '' });
+});
+
+test('readMeta drops control and format characters and caps the value at 200 characters', () => {
+  assert.equal(readMeta('Title: a‮b\u0007c\u0085d\u007Fe').title, 'abcde');
+  assert.equal(readMeta(`Title: ${'x'.repeat(300)}`).title.length, 200);
+  assert.equal(Array.from(readMeta(`Title: ${'😀'.repeat(300)}`).title).length, 200);
+});
+
+test('header lines never match TAB_LINE and add no tab', () => {
+  const lines = ['Title: x', 'Artist: -|', 'Arranged by: e|--0--|', 'Artist:', 'Title:--', 'Tempo: 90'];
+  lines.forEach((l) => assert.equal(parseTab(l).blocks.length, 0, l));
+  assert.equal(parseTab(`${lines.join('\n')}\n${emptyTab()}`).blocks.length, 1);
+});
+
+test('withMeta inserts in order, rewrites the first line, clears, and leaves every other byte alone', () => {
+  const body = `\r\nlyric  \n${emptyTab()}\n\n\nTitle without colon\n`;
+  let t = withMeta(body, { arranger: 'Z' });
+  t = withMeta(t, { title: 'T', artist: 'A' });
+  assert.equal(t, `Title: T\nArtist: A\nArranged by: Z\n${body}`);
+  const withTempoLine = withTempo(body, 100);
+  const u = withMeta(withTempoLine, { title: 'T', artist: 'A' });
+  assert.equal(u, `Title: T\nArtist: A\n${withTempoLine}`);
+  assert.equal(withMeta(u, { artist: '' }), `Title: T\n${withTempoLine}`);
+  assert.equal(withMeta(u, {}), u);
+  assert.equal(withMeta(u, { title: 'New' }).split('\n').slice(1).join('\n'), u.split('\n').slice(1).join('\n'));
+});
+
+test('withMeta is idempotent, round-trips with readMeta and never touches a later duplicate', () => {
+  const src = 'Title: a\nx\nTitle: b\nTempo: 70\n';
+  const meta = { title: '  New   title ', artist: 'Ar', arranger: '' };
+  const once = withMeta(src, meta);
+  assert.equal(withMeta(once, meta), once);
+  assert.deepEqual(readMeta(once), { title: 'New title', artist: 'Ar', arranger: '' });
+  assert.ok(once.includes('\nTitle: b\n'));
+  assert.equal(withMeta(src, { title: 'a' }), src);
+  assert.equal(withMeta(once, { title: '' }).includes('Title: New title'), false);
+  assert.equal(readMeta(withMeta(once, { title: '' })).title, 'b');
+});
+
+test('a document without header lines is unchanged by an empty withMeta', () => {
+  assert.equal(withMeta(FIXTURE, { title: '', artist: '', arranger: '' }), FIXTURE);
 });

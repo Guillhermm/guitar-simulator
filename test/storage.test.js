@@ -89,3 +89,11 @@ test('saveUi writes only editor and dockOpen under its own key and reports failu
   assert.equal(saveUi({ setItem: () => { throw new Error('blocked'); } }, { editor: 'text', dockOpen: true }), false);
   assert.equal(saveUi(null, { editor: 'text', dockOpen: true }), false);
 });
+
+test('autosave needs no header field and a document with header lines round trips', () => {
+  const store = { setItem: (k, v) => { store.v = v; } };
+  for (const text of [emptyTab(), `Title: A\nArtist: B\n${emptyTab()}`]) {
+    assert.equal(save(store, { text, tempo: 80 }), true);
+    assert.deepEqual(readSaved(store.v), { text, tempo: 80 });
+  }
+});
