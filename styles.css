@@ -18,6 +18,13 @@
   --playhead-solid: color-mix(in srgb, #D79B55 25%, var(--dock-bg));
   --bar-h: 3.5rem;
   --body-h: 14rem;
+  --reserve: 3.5rem;
+  --edge: 0.5rem;
+  --open-h: var(--body-h);
+  --open-w: 0px;
+  --k: 1;
+  --guitar-shift: translateY(calc(var(--open-h) / -2));
+  --foot-shift: translateY(calc(var(--open-h) * -1));
   --ease-open: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-close: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -62,25 +69,58 @@ html, body {
   justify-content: center;
 }
 
-/* The stage never resizes; only this wrapper moves, by half the body height, so the guitar stays
-   centered in the space the open body leaves free. */
+/* The guitar is always laid out at the collapsed size. Open, the dock leaves less room, so the
+   wrapper moves up by half the dock's height and shrinks by --k, which src/stage-fit.js sets
+   (CSS cannot divide two lengths). Only transform changes, so the animation never relayouts and
+   the SVG stays sharp, rasterized at the large size. --body-h is the one number the dock and the
+   stage share; the stage reserves --bar-h + --reserve + --body-h, 23rem at the desktop sizes. */
 .stage-inner {
+  position: absolute;
+  inset: 0 0 var(--reserve) 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  transform: translateY(calc(var(--body-h) / -2));
-  transition: transform 320ms var(--ease-open);
-}
-.app[data-open="false"] .stage-inner {
+  justify-content: center;
   transform: none;
   transition: transform 240ms var(--ease-close);
+}
+.app[data-open="true"] .stage-inner {
+  transform: var(--guitar-shift) scale(var(--k));
+  transition: transform 320ms var(--ease-open);
+}
+.stage-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--reserve);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding-bottom: 0.25rem;
+  box-sizing: border-box;
+  pointer-events: none;
+  transition: transform 240ms var(--ease-close);
+}
+.app[data-open="true"] .stage-foot {
+  transform: var(--foot-shift);
+  transition: transform 320ms var(--ease-open);
+}
+.stage-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  box-sizing: content-box;
+  width: var(--open-w);
+  height: var(--open-h);
+  padding: var(--reserve) var(--edge) 0;
 }
 .preload, .preload * { transition: none !important; }
 
 .guitar {
   display: block;
-  width: min(100vw, calc((100dvh - 21rem) * 1240 / 480));
+  flex: none;
+  width: min(calc(100% - 2 * var(--edge)), calc((100dvh - var(--bar-h) - var(--reserve)) * 1240 / 480));
   aspect-ratio: 1240 / 480;
   touch-action: none;
   user-select: none;
@@ -89,7 +129,7 @@ html, body {
 }
 
 .hint {
-  margin: 0.5rem 0 0;
+  margin: 0;
   text-align: center;
   font-size: 0.875rem;
   opacity: 0.7;
@@ -431,22 +471,13 @@ html, body {
 
 
 @media (orientation: portrait) and (max-width: 48rem) {
-  .stage-inner, .app[data-open="true"] .stage-inner, .app[data-open="false"] .stage-inner {
-    position: absolute;
-    inset: 0;
-    display: block;
-    transform: none;
-    transition: none;
-  }
+  /* The guitar stands upright. Its layout box keeps the landscape shape and rotates about its
+     center, so the width below is the guitar's length down the screen. */
+  :root { --body-h: 38dvh; --open-h: calc(var(--body-h) + 3rem); }
   .guitar {
-    position: absolute;
-    top: calc(50% - 2rem);
-    left: 50%;
-    width: min(calc(100dvh - 7.5rem), calc((100vw - 1rem) / 0.387));
-    transform: translate(-50%, -50%) rotate(90deg);
+    width: min(calc(100dvh - var(--bar-h) - var(--reserve)), calc((100vw - 2 * var(--edge)) * 1240 / 480));
+    transform: rotate(90deg);
   }
-  .hint { position: absolute; left: 0; right: 0; bottom: 2.75rem; margin: 0; }
-  .credit { position: absolute; left: 0; right: 0; bottom: 0.25rem; }
   .transport { gap: 0.25rem; padding: 0 0.5rem; }
   .btn { padding: 0 0.5rem; }
   .btn-play { flex: 1; min-width: 0; }
@@ -471,18 +502,25 @@ html, body {
     transform: translateY(100%);
     transition: transform 240ms var(--ease-close), opacity 160ms linear, visibility 0s 240ms;
   }
-  .dock-body { bottom: calc(var(--bar-h) + 3rem); height: 38dvh; }
+  .dock-body { bottom: calc(var(--bar-h) + 3rem); }
 }
 
 /* Short landscape: the bar becomes a rail on the right edge and the body slides in on X. */
 @media (orientation: landscape) and (max-height: 30rem) {
-  :root { --rail-w: 3.5rem; --body-w: 18rem; }
+  :root {
+    --rail-w: 3.5rem;
+    --body-w: 18rem;
+    --reserve: 3rem;
+    --open-h: 0px;
+    --open-w: var(--body-w);
+    --guitar-shift: translateX(calc(var(--open-w) / -2));
+    --foot-shift: translateX(calc(var(--open-w) / -2));
+  }
   .stage { inset: 0 var(--rail-w) 0 0; }
-  .stage-inner { width: 100%; transform: translateX(calc(var(--body-w) / -2)); }
-  .credit { max-width: calc(100vw - var(--rail-w) - var(--body-w) - 1rem); }
-  .app[data-open="false"] .stage-inner { transform: none; }
+  .stage-foot { padding-bottom: 0.25rem; }
+  .credit { max-width: calc(100vw - var(--rail-w) - var(--body-w) - 1rem); margin: 0 auto; }
   .guitar {
-    width: min(calc(100vw - var(--rail-w) - var(--body-w) - 1rem), calc((100dvh - 3.5rem) * 1240 / 480));
+    width: min(calc(100% - 2 * var(--edge)), calc((100dvh - var(--reserve)) * 1240 / 480));
   }
   .hint { display: none; }
   .dock { left: auto; top: 0; width: var(--rail-w); }
@@ -548,7 +586,7 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .text-area, .grid { scroll-behavior: auto; }
-  .stage-inner, .dock-body, .tools, .btn-toggle .icon { transition: none !important; }
+  .stage-inner, .stage-foot, .dock-body, .tools, .btn-toggle .icon { transition: none !important; }
   .btn[data-tip]::after { transition-duration: 0s; }
 }
 

@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 // browser would throw from our own code: a bad import, a name used before it exists, a typo.
 const stub = () => {
   const store = new Map();
-  return new Proxy(() => {}, {
+  // A plain function, not an arrow: only a function can be the target of `new`.
+  return new Proxy(function standIn() {}, {
     get: (_, key) => {
       if (key === Symbol.toPrimitive) return () => 0;
       if (key === Symbol.iterator) return function* empty() {};
