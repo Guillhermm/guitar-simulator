@@ -551,3 +551,39 @@ html, body {
   .stage-inner, .dock-body, .tools, .btn-toggle .icon { transition: none !important; }
   .btn[data-tip]::after { transition-duration: 0s; }
 }
+
+.print-root { display: none; }
+
+/* Paper is measured in points and millimeters, not rem: a sheet has a fixed physical size and the
+   type must stay the same whatever the screen's root font size is. At 10pt a monospaced character is
+   about 6pt wide, so the 68-column lines of the real tabs take 410pt of the 510pt or so that remain
+   after the margins on Letter and A4. */
+@media print {
+  @page { margin: 16mm 14mm; }
+  html, body {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+    color: #000;
+  }
+  .app { display: none; }
+  .print-root {
+    display: block;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 10pt;
+    line-height: 1.25;
+    color: #000;
+    background: #fff;
+  }
+  .print-root pre {
+    margin: 0 0 1.1em;
+    font: inherit;
+    white-space: pre;
+  }
+  /* A text run is usually the section label of the system after it, so it never ends a page alone. */
+  .print-root .print-text { white-space: pre-wrap; overflow-wrap: anywhere; break-after: avoid; }
+  .print-root .print-system { break-inside: avoid; }
+  .print-heading { margin: 0 0 1.6em; break-after: avoid; }
+  .print-title { margin: 0 0 0.3em; font: 700 16pt/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .print-meta { margin: 0; font: 11pt/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+}

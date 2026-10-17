@@ -492,6 +492,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     onFretPress: (row, fret) => {
       if (lastFocus && editorBox.contains(lastFocus)) editor.writeFret(row, fret);
     },
+    getText: () => text,
     stop,
   };
 };
