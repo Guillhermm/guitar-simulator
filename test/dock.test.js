@@ -8,6 +8,7 @@ const fakeEditor = (name, cue = 0, log = []) => {
     name,
     log,
     getCue: () => cue,
+    setEditable: () => {},
     setCue: (step) => { editor.log.push([name, 'setCue', step]); },
     setPlayhead: (event) => { editor.log.push([name, 'setPlayhead', event]); },
     dispose: () => { editor.log.push([name, 'dispose']); },

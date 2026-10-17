@@ -344,8 +344,7 @@ html, body {
 .btn-ghost:hover:not(:disabled) { border-color: var(--dock-ink); }
 .btn-toggle .icon { transition: transform 240ms var(--ease-close); }
 .app[data-open="false"] .btn-toggle .icon { transform: rotate(180deg); }
-.btn-undo { min-height: 2rem; min-width: 0; padding: 0 0.625rem; font-size: 0.875rem; }
-.btn-undo .icon { width: 1rem; height: 1rem; }
+.btn-ghost[aria-pressed="true"] { background: color-mix(in srgb, var(--dock-ink) 16%, transparent); }
 
 .tempo { display: flex; align-items: center; gap: 0.375rem; font-size: 0.875rem; }
 .tempo-input { width: 4.5rem; padding: 0 0.5rem; text-align: center; font-size: 1rem; }
@@ -468,6 +467,29 @@ html, body {
 
 .editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
+/* Editing off: the sheet tints, the cursor stops inviting a click and a label says why nothing types. */
+.app[data-editing="false"] { --ro-bg: color-mix(in srgb, var(--dock-ink) 9%, var(--dock-bg)); }
+.editor[data-editing] { position: relative; }
+.editor[data-editing="false"] { background: var(--ro-bg); }
+.editor[data-editing="false"]::after {
+  content: "Read only";
+  position: absolute;
+  z-index: 2;
+  top: 0.5rem;
+  right: var(--pad);
+  padding: 0.125rem 0.5rem;
+  font: 0.75rem system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--dock-text);
+  background: var(--dock-bg);
+  border: 1px solid var(--dock-line);
+  border-radius: 0.25rem;
+  pointer-events: none;
+}
+.editor[data-editing="false"] .text-area { cursor: default; }
+.editor[data-editing="false"] .cell { background: var(--ro-bg); cursor: default; }
+.editor[data-editing="false"] .cell.playing { background: var(--playhead-solid); }
+.field input:read-only { background: var(--ro-bg, transparent); }
+
 .text-editor { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .text-area {
   display: block;
@@ -544,6 +566,42 @@ html, body {
 .cell.playing { background: var(--playhead-solid); }
 .cell.cursor { outline: 1px dotted var(--dock-ink); outline-offset: -1px; }
 .cell:focus-visible { outline: 2px solid var(--dock-ink); outline-offset: -2px; z-index: 1; }
+
+.examples {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 4rem);
+  padding: 1rem 1.25rem;
+  color: var(--dock-text);
+  background: var(--dock-bg);
+  border: 1px solid var(--dock-ink);
+  border-radius: 0.5rem;
+  font: 1rem system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.examples::backdrop { background: rgb(0 0 0 / 0.45); }
+.examples-title { margin: 0 0 0.25rem; font-size: 1.125rem; }
+.examples-intro { margin: 0 0 0.75rem; font-size: 0.875rem; }
+.examples-list { margin: 0 0 1rem; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.example {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--dock-line);
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+.example:hover, .example:focus-visible { border-color: var(--dock-ink); background: color-mix(in srgb, var(--dock-ink) 10%, transparent); }
+.example-title { font-weight: 600; }
+.example-by, .example-note { font-size: 0.875rem; }
+.example-note { opacity: 0.8; }
+.examples-close { margin-left: auto; display: flex; }
 
 .sr-only {
   position: absolute;

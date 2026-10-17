@@ -1,5 +1,6 @@
 import { parseTab, setFret, appendBlock, landedCol } from './tab.js';
 import { caretCell, cellOffset, cueStep, stepToCell } from './tab-panel.js';
+import { editKind } from './history.js';
 
 const ROWS_IN_BLOCK = 6;
 const PLAYHEAD_FRACTION = 0.3;
@@ -56,7 +57,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     wrap.style.setProperty('--sy', `${area.scrollTop}px`);
   };
 
-  area.addEventListener('input', () => { setText(area.value); reportCursor(); });
+  area.addEventListener('input', () => { setText(area.value, editKind(getText(), area.value)); reportCursor(); });
   area.addEventListener('keyup', reportCursor);
   area.addEventListener('pointerup', reportCursor);
   area.addEventListener('scroll', syncScroll);
@@ -87,6 +88,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
   };
 
   const writeFret = (row, fret) => {
+    if (area.readOnly) return;
     let text = getText();
     let parsed = parsedNow();
     if (parsed.blocks.length === 0) {
@@ -129,5 +131,13 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     scrollTo(info.bodyStart[row] + target.col, info.lines[0]);
   };
 
-  return { setPlayhead, writeFret, update, getCue, setCue, focus: () => area.focus() };
+  return {
+    setPlayhead,
+    writeFret,
+    update,
+    getCue,
+    setCue,
+    setEditable: (on) => { area.readOnly = !on; },
+    focus: () => area.focus(),
+  };
 };

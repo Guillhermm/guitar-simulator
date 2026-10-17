@@ -82,6 +82,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
   let pending = null;
   let timer = null;
   let playing = null;
+  let editable = true;
 
   container.replaceChildren();
   const hint = make('p', 'grid-hint', container, 'Type a fret number or tap the neck.');
@@ -179,16 +180,20 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     onCursor({ ...cursor });
   };
 
+  // Writes in one column within a pause share an undo step: a chord, a retyped fret, a rest, and the
+  // block appended when the cursor runs off the end.
+  const groupOf = (c) => `col:${c.block}:${c.col}`;
+
   const ensureBlock = () => {
     if (parsed.blocks.length > 0) return;
-    setText(appendBlock(getText()));
+    setText(appendBlock(getText()), groupOf(cursor));
     refresh();
   };
 
   // Returns the cell the fret landed in: setFret may shift it one column right.
   const write = (c, fret) => {
     const next = setFret(getText(), c, fret);
-    setText(next);
+    setText(next, groupOf(c));
     refresh();
     return fret === null ? c : { ...c, col: landedCol(next, c) };
   };
@@ -196,7 +201,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
   const advance = (focus, steps = 1) => {
     const step = moveRightBy(cursor, widths(), steps);
     if (step.overflow) {
-      setText(appendBlock(getText()));
+      setText(appendBlock(getText()), groupOf(cursor));
       refresh();
       setCursor({ ...cursor, block: parsed.blocks.length - 1, col: 0 }, focus);
     } else {
@@ -210,6 +215,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
   };
 
   const typeDigit = (digit) => {
+    if (!editable) return;
     ensureBlock();
     const entry = enterDigit(pending, digit, cellKey(cursor), Date.now());
     pending = entry.pending;
@@ -230,6 +236,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     const result = reduceGridKey(cursor, e.key, widths());
     if (!result) return;
     e.preventDefault();
+    if (result.action && !editable) return;
     flush();
     if (result.action === 'clear') write(cursor, null);
     if (result.action === 'rest') {
@@ -272,6 +279,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
   };
 
   const writeFret = (row, fret) => {
+    if (!editable) return;
     flush();
     ensureBlock();
     const focus = hasFocus();
@@ -298,6 +306,11 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     setPlayhead,
     writeFret,
     update: refresh,
+    setEditable: (on) => {
+      editable = on;
+      if (!on) flush();
+      grid.setAttribute('aria-readonly', String(!on));
+    },
     dispose: flush,
     focus: () => (parsed.blocks.length === 0 ? hint : cellAt(cursor) || hint).focus(),
   };

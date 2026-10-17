@@ -1,4 +1,4 @@
-import { parseTab, withTempo, emptyTab, readMeta } from './tab.js';
+import { parseTab, withTempo, readMeta } from './tab.js';
 import { buildSongFields, summaryOf, refusalStatus, saveCheck, textWithField } from './song-fields.js';
 import { missingFields } from './files.js';
 import { createScheduler } from './scheduler.js';
@@ -6,9 +6,18 @@ import { KEY, UI_KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, readUi, sa
 import { buildIcon } from './icons.js';
 import { exportFile, readImportedFile, fileBase } from './files.js';
 import { printTab } from './print.js';
+import {
+  clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
+} from './edit-rules.js';
+import { createHistory } from './history.js';
+import { loadExampleText, createExamplesFlow } from './examples.js';
+import { buildExamplesDialog } from './examples-dialog.js';
+import { SONGS } from '../songs/index.js';
+
+export { clearedText, clearDocument };
 
 const SAVE_DELAY_MS = 300;
-const UNDO_MS = 8000;
+const FLASH_MS = 4000;
 const PHONE_PORTRAIT = '(orientation: portrait) and (max-width: 48rem)';
 const EDITOR_LABELS = [['text', 'Text'], ['grid', 'Grid']];
 
@@ -84,18 +93,6 @@ export const startStep = (parsed, cue) => (parsed.events.some((e) => e.step >= c
 export const cueAfterRun = (reason, shown) => {
   if (reason === 'end') return 0;
   return shown ? shown.step : null;
-};
-
-// The text a Clear leaves: an empty tab that keeps the tempo line only if the document had one.
-export const clearedText = (text) => {
-  const tempo = parseTab(text).tempo;
-  return tempo ? withTempo(emptyTab(), tempo) : emptyTab();
-};
-
-// null when there is nothing to clear; otherwise the new text and the one Undo restores.
-export const clearDocument = (text) => {
-  const next = clearedText(text);
-  return next === text ? null : { text: next, previous: text };
 };
 
 const make = (tag, className, parent, text) => {
@@ -190,8 +187,9 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   let saveTimer = null;
   let lastFocus = null;
   let message = '';
-  let undoText = null;
-  let undoTimer = null;
+  let flashTimer = null;
+  let editing = initialEditing(text);
+  const history = createHistory(text);
   let invalid = [];
   let refusing = false;
 
@@ -236,6 +234,11 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     make('span', null, label, name);
     return radio;
   });
+  const editToggle = iconButton({ icon: 'pencil', label: editingLabel(true), tip: editingLabel(true) }, tools);
+  const undoButton = iconButton({ icon: 'undo', label: 'Undo', tip: 'Undo' }, tools);
+  const redoButton = iconButton({ icon: 'redo', label: 'Redo', tip: 'Redo' }, tools);
+  make('span', 'rule', tools).setAttribute('aria-hidden', 'true');
+  const examplesButton = iconButton({ icon: 'examples', label: 'Example songs', tip: 'Examples' }, tools);
   const open = iconButton({ icon: 'open', label: 'Open a tab file', tip: 'Open' }, tools);
   const saveButton = iconButton({ icon: 'save', label: 'Save as a text file', tip: 'Save' }, tools);
   const printButton = iconButton({ icon: 'print', label: 'Print the tab', tip: 'Print' }, tools);
@@ -265,16 +268,6 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     saveTimer = setTimeout(persist, SAVE_DELAY_MS);
   };
 
-  const undoButton = button('Undo', status, 'btn btn-undo');
-  undoButton.prepend(buildIcon('undo'));
-  undoButton.remove();
-
-  const dropUndo = () => {
-    clearTimeout(undoTimer);
-    undoText = null;
-    if (document.activeElement === undoButton) editor.focus();
-  };
-
   const clearRefusal = () => {
     invalid = [];
     refusing = false;
@@ -286,21 +279,47 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     songFields.toggle.setAttribute('aria-expanded', String(isOpen));
   };
 
-  const onFieldInput = (key, value) => {
-    text = textWithField(text, key, value);
+  const flash = (note) => {
+    message = note;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+      if (message !== note) return;
+      message = '';
+      refresh();
+    }, FLASH_MS);
+  };
+
+  // Every edit made through the page lands here: the text, one history step (or a join with the
+  // previous one when `group` matches) and the saved copy.
+  const apply = (next, group = null) => {
+    text = next;
     message = '';
-    dropUndo();
-    editor.update();
+    history.record(next, group);
     persistSoon();
+  };
+
+  const onFieldInput = (key, value) => {
+    if (!editing) return;
+    apply(textWithField(text, key, value), `field:${key}`);
+    editor.update();
     refresh();
   };
 
   const editorOptions = {
     getText: () => text,
-    setText: (next) => { text = next; message = ''; dropUndo(); persistSoon(); refresh(); },
+    setText: (next, group = null) => {
+      if (!editing) return;
+      apply(next, group);
+      refresh();
+    },
     onCursor: () => {},
   };
-  let editor = editors[ui.editor](editorBox, editorOptions);
+  const buildEditor = () => {
+    const built = editors[ui.editor](editorBox, editorOptions);
+    built.setEditable(editing);
+    return built;
+  };
+  let editor = buildEditor();
 
   const setPlayState = (isPlaying) => {
     const label = isPlaying ? 'Stop' : 'Play';
@@ -327,9 +346,11 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     const note = (refusing ? '' : message) || statusFor(parsed);
     status.replaceChildren();
     if (note) make('span', null, status, note);
-    if (undoText !== null) status.append(undoButton);
-    clearButton.disabled = clearDocument(text) === null;
-    play.disabled = !playing && parsed.events.length === 0;
+    clearButton.disabled = !editing || clearDocument(text) === null;
+    undoButton.disabled = !history.canUndo();
+    redoButton.disabled = !history.canRedo();
+    // A button that just went disabled cannot keep focus; the editor is the natural place for it.
+    if (document.activeElement?.disabled === true) editor.focus();
     if (document.activeElement !== tempo) tempo.value = parsed.tempo || DEFAULT_TEMPO;
   };
 
@@ -396,7 +417,8 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     text = next;
     message = '';
     clearRefusal();
-    dropUndo();
+    history.record(next);
+    setEditing(initialEditing(next));
     editor.update();
     editor.setCue(0);
     persist();
@@ -415,20 +437,16 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   };
 
   const clearAll = () => {
+    if (!editing) return;
     const cleared = clearDocument(text);
     if (!cleared) return;
     const fromButton = document.activeElement === clearButton;
     if (playing) stop();
-    dropUndo();
     clearRefusal();
     text = cleared.text;
-    undoText = cleared.previous;
-    message = 'Tab cleared.';
-    undoTimer = setTimeout(() => {
-      dropUndo();
-      message = '';
-      refresh();
-    }, UNDO_MS);
+    history.record(text);
+    flash('Tab cleared.');
+    setEditing(initialEditing(text));
     editor.update();
     editor.setCue(0);
     persist();
@@ -436,33 +454,68 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (fromButton) undoButton.focus();
   };
 
-  undoButton.addEventListener('click', () => {
-    if (undoText === null) return;
-    text = undoText;
+  // Undo and redo swap the whole document text, so the song fields and either editor just re-read it.
+  const applyHistory = (next) => {
+    if (next === null) return;
+    if (playing) stop();
+    text = next;
     message = '';
     clearRefusal();
-    dropUndo();
     editor.update();
-    editor.setCue(0);
     persist();
     refresh();
-  });
+  };
+  const undo = () => applyHistory(history.undo());
+  const redo = () => applyHistory(history.redo());
 
-  [play, back, clearButton, undoButton].forEach((b) => {
+  const setEditing = (on) => {
+    editing = on;
+    const label = editingLabel(on);
+    root.dataset.editing = String(on);
+    editorBox.dataset.editing = String(on);
+    editToggle.setAttribute('aria-pressed', String(on));
+    editToggle.setAttribute('aria-label', label);
+    editToggle.dataset.tip = label;
+    editToggle.replaceChildren(buildIcon(on ? 'pencil' : 'pencil-off'));
+    history.setEnabled(on);
+    editor.setEditable(on);
+    songFields.setEditable(on);
+    refresh();
+  };
+
+  [play, back, clearButton, undoButton, redoButton, editToggle].forEach((b) => {
     b.addEventListener('mousedown', (e) => e.preventDefault());
   });
   back.addEventListener('click', backToStart);
   clearButton.addEventListener('click', clearAll);
-  play.addEventListener('click', () => (playing ? stop() : start()));
+  undoButton.addEventListener('click', undo);
+  redoButton.addEventListener('click', redo);
+  editToggle.addEventListener('click', () => setEditing(!editing));
+
+  const flow = createExamplesFlow({
+    show: () => examplesDialog.open(),
+    load: loadExampleText,
+    apply: (next) => replaceText(next),
+    start: () => start(),
+    fail: () => { flash('Could not load that example.'); refresh(); },
+  });
+  const examplesDialog = buildExamplesDialog(SONGS, { onPick: (entry) => flow.pick(entry) });
+  dock.append(examplesDialog.dialog);
+  examplesButton.addEventListener('click', flow.openFromButton);
+
+  const pressPlay = () => {
+    const action = playPress({ playing, hasNotes: parseTab(text).events.length > 0 });
+    if (action === 'stop') stop();
+    else if (action === 'play') start();
+    else flow.openFromPlay();
+  };
+  play.addEventListener('click', pressPlay);
 
   tempo.addEventListener('change', () => {
     const bpm = Math.round(Number(tempo.value));
     if (Number.isFinite(bpm)) {
-      text = withTempo(text, clamp(bpm, MIN_TEMPO, MAX_TEMPO));
-      message = '';
-      dropUndo();
+      apply(withTempo(text, clamp(bpm, MIN_TEMPO, MAX_TEMPO)), 'tempo');
       editor.update();
-      persistSoon();
     }
     tempo.value = parseTab(text).tempo || DEFAULT_TEMPO;
     refresh();
@@ -534,17 +587,33 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   radios.forEach((radio) => radio.addEventListener('change', () => {
     if (!radio.checked || radio.value === ui.editor) return;
     ui = { ...ui, editor: radio.value };
-    editor = swapEditor(editor, () => editors[ui.editor](editorBox, editorOptions), shown);
+    editor = swapEditor(editor, buildEditor, shown);
     saveUi(storage, ui);
   }));
   dock.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !play.disabled) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (playing) stop(); else start();
+      pressPlay();
     } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
       e.preventDefault();
       backToStart();
     }
+  });
+
+  // One history for the page: it replaces the textarea's own undo, which would know nothing of
+  // grid edits, fields or taps on the guitar.
+  document.addEventListener('keydown', (e) => {
+    const command = historyKey(e);
+    if (!command || examplesDialog.isOpen() || e.target === tempo || e.target === picker) return;
+    e.preventDefault();
+    if (!editing) return;
+    if (command === 'undo') undo(); else redo();
+  });
+  dock.addEventListener('beforeinput', (e) => {
+    if (e.inputType !== 'historyUndo' && e.inputType !== 'historyRedo') return;
+    e.preventDefault();
+    if (!editing) return;
+    if (e.inputType === 'historyUndo') undo(); else redo();
   });
 
   document.addEventListener('focusin', (e) => { lastFocus = e.target; });
@@ -552,12 +621,14 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
 
   applyOpen(ui.dockOpen);
   setMetaOpen(false);
-  refresh();
+  setEditing(editing);
 
   return {
-    // Only a press that follows editing writes to the tab; plain playing leaves it alone.
+    // Only a press that follows editing writes to the tab, and only with editing on; playing leaves it alone.
     onFretPress: (row, fret) => {
-      if (lastFocus && editorBox.contains(lastFocus)) editor.writeFret(row, fret);
+      if (guitarMayWrite({ editing, focusInEditor: Boolean(lastFocus) && editorBox.contains(lastFocus) })) {
+        editor.writeFret(row, fret);
+      }
     },
     getText: () => text,
     stop,

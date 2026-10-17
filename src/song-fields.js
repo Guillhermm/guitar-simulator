@@ -111,6 +111,8 @@ export const buildSongFields = (parent, { onInput }) => {
         box.toggleAttribute('data-invalid', bad);
       });
     },
+    // Read-only fields still show, select and copy; they just refuse typing.
+    setEditable: (on) => cells.forEach(({ input }) => { input.readOnly = !on; }),
     focus: (key) => cells.get(key)?.input.focus(),
   };
 };
