@@ -31,7 +31,8 @@ test('the page links the manifest and icons, and its CSP lets them and the worke
   const csp = /Content-Security-Policy" content="([^"]+)"/.exec(html)[1];
   assert.match(csp, /manifest-src 'self'/);
   assert.match(csp, /worker-src 'self'/);
-  assert.match(csp, /connect-src 'none'/);
+  // Desktop Chrome downloads the manifest icons under connect-src before it offers to install.
+  assert.match(csp, /connect-src 'self';/);
   pngSize('assets/icon/apple-touch-icon.png');
   assert.equal(pngSize('assets/icon/favicon-32.png'), '32x32');
 });

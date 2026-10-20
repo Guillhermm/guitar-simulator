@@ -1,5 +1,5 @@
-// Reads one example's tab text. The CSP has connect-src 'none', so this is a dynamic import() of a
-// same-origin module (script-src 'self'), never a fetch.
+// Reads one example's tab text. Each song is an ES module exporting its tab, so this is a dynamic
+// import() of a same-origin module (script-src 'self').
 export const loadExampleText = async (entry, importer = (path) => import(path)) => {
   const mod = await importer(`../songs/${entry.module}`);
   if (typeof mod.default !== 'string' || mod.default.trim() === '') {

@@ -87,13 +87,13 @@ To add a song:
 
 2. Add an entry to `SONGS` in `songs/index.js`: `{ id, title, artist, arranger, note, module: '<id>.js' }`, plus `group` to give it a column with others of its set. Leave `arranger` (and the `Arranged by:` line) out when the artist made the arrangement, as in the team's own chords example and technique study. The title, artist and arranger must match the header lines.
 
-Songs are loaded with a dynamic `import()`, which the page's Content Security Policy allows (`script-src 'self'`); `fetch` is blocked by `connect-src 'none'`. `test/examples.test.js` checks that every entry loads and has its headers, and that each minuet and the Rondo keeps one bar per block, opens with its melody and never asks for more than one hand's span.
+Songs are loaded with a dynamic `import()`, which the page's Content Security Policy allows (`script-src 'self'`). `test/examples.test.js` checks that every entry loads and has its headers, and that each minuet and the Rondo keeps one bar per block, opens with its melody and never asks for more than one hand's span.
 
 ## Search and sharing
 
 The page carries what search engines and link previews read: a descriptive title and meta description, a canonical URL (`https://guillhermm.github.io/guitar-simulator/`), Open Graph and Twitter card tags with a 1200x630 share card (`assets/icon/share.png`, drawn by `tools/build_icons.py` with the icons), schema.org `WebApplication` data in a JSON-LD block (a data block, so the Content Security Policy does not block it), a visually hidden `h1`, a `noscript` description, `sitemap.xml`, and the Google Search Console verification tag (a test keeps it on the page, since removing it unverifies the property). There is no `robots.txt`: on a project site crawlers read only the one at the domain root, and `guillhermm.github.io` has none, which means everything may be crawled. Submit the sitemap in Google Search Console once the site is live.
 
-Lighthouse scores Accessibility 100, Best Practices 100 and SEO 92 on a phone (checked 2026-10-20). The one SEO audit it fails, "robots.txt is not valid", is Lighthouse fetching `robots.txt` from inside the page, which `connect-src 'none'` forbids; crawlers do not run inside the page, so they are not affected, and the policy stays closed rather than opened for a score.
+Lighthouse scored Accessibility 100, Best Practices 100 and SEO 92 on a phone on 2026-10-20, while the policy still had `connect-src 'none'`: the one SEO audit that failed, "robots.txt is not valid", was Lighthouse fetching `robots.txt` from inside the page. Crawlers were never affected. The policy now allows the site's own origin (see Security), so that audit no longer hits it.
 
 ## Deployment
 
@@ -103,14 +103,14 @@ One-time setup in the repository settings: make the repository public (free-plan
 
 ## Security
 
-Everything a person can put in reaches the page as text and never as markup: the tab text, the song fields, an opened or dropped file, the saved copy in the browser and the print view are all written with `textContent` and form values, and the code has no `innerHTML`, `eval`, `document.write`, and no link or script address built from input. Header values drop control and bidirectional-override characters, file names are lowercase ASCII slugs, the tempo is clamped to 40-240, and the saved document and the editor choice are checked field by field when the page opens. A document is at most 256 KB however it arrives, so the saved copy can always be reopened. The Content Security Policy in `index.html` is the second wall: scripts, styles, images, the manifest and the worker come only from the site itself, and `connect-src`, `object-src`, `base-uri` and `form-action` are closed.
+Everything a person can put in reaches the page as text and never as markup: the tab text, the song fields, an opened or dropped file, the saved copy in the browser and the print view are all written with `textContent` and form values, and the code has no `innerHTML`, `eval`, `document.write`, and no link or script address built from input. Header values drop control and bidirectional-override characters, file names are lowercase ASCII slugs, the tempo is clamped to 40-240, and the saved document and the editor choice are checked field by field when the page opens. A document is at most 256 KB however it arrives, so the saved copy can always be reopened. The Content Security Policy in `index.html` is the second wall: scripts, styles, images, the manifest, the worker and any connection come only from the site itself, and `object-src`, `base-uri` and `form-action` are closed. `connect-src` was `'none'` until 2026-10-20; desktop Chrome downloads the manifest icons under that directive before it offers to install the app, so with it closed the deployed site could not be installed from a computer (phones were unaffected). `'self'` lets the page reach only the site it came from, which serves static files and accepts nothing.
 
 This was checked in Chrome on 2026-10-20, not only read: a file whose title, artist, arranger and body held `<script>`, `<img onerror>`, `<svg onload>`, `javascript:` links, an iframe, a style tag, template syntax and a right-to-left override opened as plain text with no alert, no new element and no policy violation; a poisoned saved copy did the same, a `__proto__` key changed nothing, and a 410 KB paste and a binary file were refused. There are no dependencies, so there is nothing for `npm audit` to scan.
 
 A meta tag cannot set every header. Wherever the app is hosted, the server should also send:
 
 ```
-Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 Strict-Transport-Security: max-age=31536000; includeSubDomains
 X-Content-Type-Options: nosniff
 Referrer-Policy: no-referrer
