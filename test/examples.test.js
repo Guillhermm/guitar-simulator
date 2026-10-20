@@ -6,13 +6,17 @@ import { DEFAULT_GROUP, groupSongs } from '../src/examples-dialog.js';
 import { parseTab, readMeta } from '../src/tab.js';
 import { noteAt } from '../src/pitch.js';
 
-test('every index entry has an id, a title, an artist, an arranger, a note and a module', () => {
+test('every index entry has an id, a title, an artist, a note and a module, and an arranger only when it is someone else', () => {
   assert.ok(SONGS.length >= 2);
   SONGS.forEach((song) => {
-    ['id', 'title', 'artist', 'arranger', 'note', 'module'].forEach((key) => {
+    ['id', 'title', 'artist', 'note', 'module'].forEach((key) => {
       assert.equal(typeof song[key], 'string', `${song.id} ${key}`);
       assert.notEqual(song[key].trim(), '', `${song.id} ${key}`);
     });
+    if ('arranger' in song) {
+      assert.notEqual(song.arranger.trim(), '', song.id);
+      assert.notEqual(song.arranger, song.artist, song.id);
+    }
   });
 });
 
@@ -27,7 +31,7 @@ test('every entry loads through the same dynamic import the page uses, with non-
     const meta = readMeta(text);
     assert.equal(meta.title, song.title, song.id);
     assert.equal(meta.artist, song.artist, song.id);
-    assert.equal(meta.arranger, song.arranger, song.id);
+    assert.equal(meta.arranger, song.arranger ?? '', song.id);
     assert.ok(parseTab(text).events.length > 0, `${song.id} has notes`);
   }
 });

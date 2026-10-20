@@ -1,7 +1,8 @@
 // To add a song: drop a module in this folder that exports the tab text as its default export, then
 // add an entry here. `module` is the file name inside songs/, loaded on demand with import(). `group`
 // puts it in a column of its own in the Examples dialog; without one it goes under Some examples.
-// The dialog sorts by title, so the order here does not matter.
+// The dialog sorts by title, so the order here does not matter. Leave `arranger` out when the
+// artist arranged it.
 export const SONGS = [
   {
     id: 'minueto-op1-1',
@@ -42,7 +43,6 @@ export const SONGS = [
     id: 'guitar-chords',
     title: 'Guitar chords in practice',
     artist: 'Guitar Simulator AI Team',
-    arranger: 'Guitar Simulator AI Team',
     note: 'The 31 most used shapes, each strummed and then picked, and four progressions that use them.',
     module: 'guitar-chords.js',
   },
@@ -50,7 +50,6 @@ export const SONGS = [
     id: 'technique-study',
     title: 'Technique study',
     artist: 'Guitar Simulator AI Team',
-    arranger: 'Guitar Simulator AI Team',
     note: 'Every technique the simulator plays, one short phrase each.',
     module: 'technique-study.js',
   },

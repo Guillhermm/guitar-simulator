@@ -85,7 +85,7 @@ To add a song:
    `;
    ```
 
-2. Add an entry to `SONGS` in `songs/index.js`: `{ id, title, artist, arranger, note, module: '<id>.js' }`, plus `group` to give it a column with others of its set. The title, artist and arranger must match the header lines.
+2. Add an entry to `SONGS` in `songs/index.js`: `{ id, title, artist, arranger, note, module: '<id>.js' }`, plus `group` to give it a column with others of its set. Leave `arranger` (and the `Arranged by:` line) out when the artist made the arrangement, as in the team's own chords example and technique study. The title, artist and arranger must match the header lines.
 
 Songs are loaded with a dynamic `import()`, which the page's Content Security Policy allows (`script-src 'self'`); `fetch` is blocked by `connect-src 'none'`. `test/examples.test.js` checks that every entry loads and has its headers, and that each minuet and the Rondo keeps one bar per block, opens with its melody and never asks for more than one hand's span.
 
