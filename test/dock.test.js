@@ -60,7 +60,12 @@ const stub = () => {
 const withBrowser = (phone, fn) => {
   const globals = {
     document: stub(),
-    window: { matchMedia: () => ({ matches: phone }), addEventListener: () => {} },
+    window: {
+      matchMedia: () => ({ matches: phone }),
+      addEventListener: () => {},
+      ResizeObserver: class { observe() {} },
+      getComputedStyle: () => ({}),
+    },
     requestAnimationFrame: () => 0,
     cancelAnimationFrame: () => {},
     location: { search: '?editor=grid' },

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  blockOffsets, caretCell, cellOffset, clearDocument, clearedText, cueAfterRun, cueStep, gridCueStep, lineStarts,
+  blockOffsets, scrollbarWidth, caretCell, cellOffset, clearDocument, clearedText, cueAfterRun, cueStep, gridCueStep, lineStarts,
   startStep, statusFor, stepLookup, stepToCell, takeDue,
 } from '../src/tab-panel.js';
 import { parseTab, emptyTab } from '../src/tab.js';
@@ -181,4 +181,11 @@ test('clearDocument without a tempo line writes none', () => {
 test('clearDocument is null for a document that is already an empty tab', () => {
   assert.equal(clearDocument(emptyTab()), null);
   assert.equal(clearDocument(clearedText('Tempo: 100\ne|-3-|')), null);
+});
+
+test('scrollbarWidth is the gap a vertical scrollbar takes, without borders, never negative', () => {
+  const style = { borderLeftWidth: '1px', borderRightWidth: '1px' };
+  assert.equal(scrollbarWidth({ offsetWidth: 517, clientWidth: 500 }, style), 15);
+  assert.equal(scrollbarWidth({ offsetWidth: 502, clientWidth: 500 }, style), 0);
+  assert.equal(scrollbarWidth({ offsetWidth: 500, clientWidth: 500 }, { borderLeftWidth: '', borderRightWidth: '0px' }), 0);
 });

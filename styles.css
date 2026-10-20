@@ -476,7 +476,7 @@ html, body {
   position: absolute;
   z-index: 2;
   top: 0.5rem;
-  right: var(--pad);
+  right: calc(var(--pad) + var(--scrollbar, 0px));
   padding: 0.125rem 0.5rem;
   font: 0.75rem system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--dock-text);

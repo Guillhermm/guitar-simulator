@@ -175,6 +175,10 @@ const loadUi = (storage) => {
   return readUi(raw, window.matchMedia(PHONE_PORTRAIT).matches);
 };
 
+// Width of an element's vertical scrollbar, 0 for overlay scrollbars or when nothing scrolls.
+export const scrollbarWidth = (el, style) => Math.max(0,
+  el.offsetWidth - el.clientWidth - (parseFloat(style.borderLeftWidth) || 0) - (parseFloat(style.borderRightWidth) || 0));
+
 export const createTabPanel = ({ dock, root, player, guitar, editors, storage = window.localStorage }) => {
   let text = loadText(storage);
   let ui = loadUi(storage);
@@ -320,6 +324,14 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   };
   let editor = buildEditor();
 
+  // The Read only label sits at the sheet's top right, so it moves left by the scrollbar's width.
+  const fitReadOnlyLabel = () => {
+    const scroller = editorBox.querySelector('.text-area, .grid');
+    const width = scroller ? scrollbarWidth(scroller, window.getComputedStyle(scroller)) : 0;
+    editorBox.style.setProperty('--scrollbar', `${width}px`);
+  };
+  new window.ResizeObserver(fitReadOnlyLabel).observe(editorBox);
+
   const setPlayState = (isPlaying) => {
     const label = isPlaying ? 'Stop' : 'Play';
     play.replaceChildren(buildIcon(isPlaying ? 'stop' : 'play'));
@@ -351,6 +363,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     // A button that just went disabled cannot keep focus; the editor is the natural place for it.
     if (document.activeElement?.disabled === true) editor.focus();
     if (document.activeElement !== tempo) tempo.value = parsed.tempo || DEFAULT_TEMPO;
+    fitReadOnlyLabel();
   };
 
   const finish = (reason = 'stop') => {
