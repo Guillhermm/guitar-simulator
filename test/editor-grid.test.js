@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setFret, emptyTab, landedCol, digitCount, parseTab } from '../src/tab.js';
-import { ENTRY_WINDOW_MS, cellText, enterDigit, moveRight, reduceGridKey } from '../src/editor-grid.js';
+import { ENTRY_WINDOW_MS, cellText, enterDigit, moveRight, moveRightBy, reduceGridKey, tapSteps } from '../src/editor-grid.js';
 
 const at = (block, row, col) => ({ block, row, col });
 const widths = [4, 3];
@@ -108,4 +108,22 @@ test('clearing a cell holding x removes the muted note', () => {
   const cleared = setFret(lines.join('\n'), { block: 0, row: 3, col: 1 }, null);
   assert.equal(cleared.split('\n')[3], 'D|----|');
   assert.equal(parseTab(cleared).events.length, 0);
+});
+
+test('taps from the guitar keep the block width and overflow at its end', () => {
+  let text = emptyTab();
+  const width = parseTab(text).blocks[0].width;
+  let cursor = { block: 0, row: 0, col: 0 };
+  let taps = 0;
+  for (;;) {
+    text = setFret(text, cursor, 3);
+    taps += 1;
+    const at = moveRightBy({ ...cursor, col: landedCol(text, cursor) }, [width], tapSteps(3));
+    if (at.overflow) break;
+    cursor = at.cursor;
+  }
+  assert.equal(parseTab(text).blocks[0].width, width);
+  assert.equal(taps, width / 2);
+  assert.equal(tapSteps(12), 3);
+  assert.equal(tapSteps(null), 1);
 });

@@ -24,17 +24,16 @@ export const initialEditing = (text) => isBlankDocument(text);
 
 export const editingLabel = (editing) => (editing ? 'Editing on' : 'Editing off');
 
-// A tap on the guitar writes into the tab only while editing is on and an editor holds focus.
-export const guitarMayWrite = ({ editing, focusInEditor }) => editing && focusInEditor;
+// A tap on the guitar writes into the tab only while editing is on and the editor is the target:
+// it holds focus, or editing was just switched on and nothing else has taken focus since. Switching
+// on does not focus the editor itself, since on a phone that raises the keyboard over the guitar.
+export const guitarMayWrite = ({ editing, focusInEditor, armed = false }) => editing && (focusInEditor || armed);
 
 // Play on a tab with no notes opens the example list instead of doing nothing.
 export const playPress = ({ playing, hasNotes }) => {
   if (playing) return 'stop';
   return hasNotes ? 'play' : 'examples';
 };
-
-// Only the list opened by Play starts playback after a pick; the Examples button never does.
-export const afterPick = ({ fromPlay }) => ({ editing: false, play: fromPlay });
 
 // Maps a keydown to a history command. Ctrl/Cmd+Z undoes, with Shift it redoes, and Ctrl+Y redoes.
 export const historyKey = (e) => {

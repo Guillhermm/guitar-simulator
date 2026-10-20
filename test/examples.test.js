@@ -125,31 +125,16 @@ const harness = ({ load = async () => 'TEXT' } = {}) => {
   return { flow, log };
 };
 
-test('the Examples button opens the list and a pick loads without playing', async () => {
+test('a pick loads the song and starts playback', async () => {
   const { flow, log } = harness();
-  flow.openFromButton();
-  await flow.pick({ id: 'a' });
-  assert.deepEqual(log, ['show', 'apply TEXT']);
-});
-
-test('the list opened by Play loads the pick and starts playback', async () => {
-  const { flow, log } = harness();
-  flow.openFromPlay();
+  flow.open();
   await flow.pick({ id: 'a' });
   assert.deepEqual(log, ['show', 'apply TEXT', 'start']);
 });
 
-test('opening from the button after Play goes back to not playing', async () => {
-  const { flow, log } = harness();
-  flow.openFromPlay();
-  flow.openFromButton();
-  await flow.pick({ id: 'a' });
-  assert.deepEqual(log, ['show', 'show', 'apply TEXT']);
-});
-
 test('a failed load reports it and neither applies nor plays', async () => {
   const { flow, log } = harness({ load: async () => { throw new Error('no'); } });
-  flow.openFromPlay();
+  flow.open();
   await flow.pick({ id: 'a' });
   assert.deepEqual(log, ['show', 'fail']);
 });

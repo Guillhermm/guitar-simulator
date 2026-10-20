@@ -8,24 +8,19 @@ export const loadExampleText = async (entry, importer = (path) => import(path)) 
   return mod.default;
 };
 
-// The two ways to open the list differ in one thing: only the one Play opens starts playback after a
-// pick. `fromPlay` is read when the pick starts, so a slow load cannot be affected by a later open.
-export const createExamplesFlow = ({ show, load, apply, start, fail }) => {
-  let fromPlay = false;
-  return {
-    openFromButton: () => { fromPlay = false; show(); },
-    openFromPlay: () => { fromPlay = true; show(); },
-    pick: async (entry) => {
-      const autoPlay = fromPlay;
-      let text;
-      try {
-        text = await load(entry);
-      } catch (error) {
-        fail(error);
-        return;
-      }
-      apply(text);
-      if (autoPlay) start();
-    },
-  };
-};
+// Picking a song is asking to hear it, so a pick plays once it loads, however the list was opened
+// (Guilherme, 2026-10-20). The pick's click is the gesture that lets the audio start.
+export const createExamplesFlow = ({ show, load, apply, start, fail }) => ({
+  open: () => show(),
+  pick: async (entry) => {
+    let text;
+    try {
+      text = await load(entry);
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    apply(text);
+    start();
+  },
+});

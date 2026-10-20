@@ -19,6 +19,17 @@ export const keptCaret = (before, after, at) => {
   return Math.min(at, after.length - tail);
 };
 
+// Writes a fret and says where the caret goes next: two columns on, or, past the closing bar, the
+// start of the next block, which is added when the tab has none, so a run of taps keeps going.
+export const writeAt = (text, at, fret) => {
+  let next = setFret(text, at, fret);
+  const col = landedCol(next, at) + CARET_ADVANCE;
+  const { blocks } = parseTab(next);
+  if (col < blocks[at.block].width) return { text: next, caret: { ...at, col } };
+  if (at.block + 1 >= blocks.length) next = appendBlock(next);
+  return { text: next, caret: { block: at.block + 1, row: at.row, col: 0 } };
+};
+
 export const createEditor = (container, { getText, setText, onCursor = () => {} }) => {
   container.replaceChildren();
   const wrap = document.createElement('div');
@@ -97,14 +108,15 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     }
     const cell = caretCell(parsed, text, Math.min(area.selectionStart, text.length));
     if (!cell) return;
-    const next = setFret(text, { block: cell.block, row, col: cell.col }, fret);
-    setText(next);
-    area.value = next;
+    const written = writeAt(text, { block: cell.block, row, col: cell.col }, fret);
+    setText(written.text);
+    area.value = written.text;
     const after = parsedNow();
-    const info = after.blocks[cell.block];
-    const col = Math.min(landedCol(next, { block: cell.block, row, col: cell.col }) + CARET_ADVANCE, info.width - 1);
-    const offset = cellOffset(after, next, { block: cell.block, row, col });
+    const offset = cellOffset(after, written.text, written.caret);
     area.setSelectionRange(offset, offset);
+    // Unfocused, the textarea does not follow its caret, so a new block below would stay out of view.
+    const info = after.blocks[written.caret.block];
+    scrollTo(info.bodyStart[written.caret.row] + written.caret.col, info.lines[0]);
     reportCursor();
   };
 

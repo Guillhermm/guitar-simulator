@@ -27,6 +27,11 @@ export const moveRight = (cursor, widths) => {
 };
 
 // Steps right over the columns a fret occupies, so the cursor lands after its last digit.
+// A guitar tap leaves one dash after the fret, as the text editor does. Landing right after a fret
+// would make setFret insert a column to keep the two apart, and the block would grow without end
+// instead of moving on to the next one.
+export const tapSteps = (fret) => (fret === null ? 1 : digitCount(fret) + 1);
+
 export const moveRightBy = (cursor, widths, steps) => {
   let at = { cursor, overflow: false };
   for (let i = 0; i < steps && !at.overflow; i++) at = moveRight(at.cursor, widths);
@@ -284,7 +289,7 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     ensureBlock();
     const focus = hasFocus();
     cursor = write({ block: cursor.block, row, col: cursor.col }, fret);
-    advance(focus, fret === null ? 1 : digitCount(fret));
+    advance(focus, tapSteps(fret));
   };
 
   const getCue = () => gridCueStep(parsed, cursor);

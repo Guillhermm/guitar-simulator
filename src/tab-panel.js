@@ -190,6 +190,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   let frame = 0;
   let saveTimer = null;
   let lastFocus = null;
+  let armed = false;
   let message = '';
   let flashTimer = null;
   let editing = initialEditing(text);
@@ -470,6 +471,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     persist();
     refresh();
     if (fromButton) undoButton.focus();
+    armed = editing;
   };
 
   // Undo and redo swap the whole document text, so the song fields and either editor just re-read it.
@@ -508,7 +510,10 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   newButton.addEventListener('click', startNew);
   undoButton.addEventListener('click', undo);
   redoButton.addEventListener('click', redo);
-  editToggle.addEventListener('click', () => setEditing(!editing));
+  editToggle.addEventListener('click', () => {
+    setEditing(!editing);
+    armed = editing;
+  });
 
   const flow = createExamplesFlow({
     show: () => examplesDialog.open(),
@@ -519,13 +524,13 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   });
   const examplesDialog = buildExamplesDialog(SONGS, { onPick: (entry) => flow.pick(entry) });
   dock.append(examplesDialog.dialog);
-  examplesButton.addEventListener('click', flow.openFromButton);
+  examplesButton.addEventListener('click', flow.open);
 
   const pressPlay = () => {
     const action = playPress({ playing, hasNotes: parseTab(text).events.length > 0 });
     if (action === 'stop') stop();
     else if (action === 'play') start();
-    else flow.openFromPlay();
+    else flow.open();
   };
   play.addEventListener('click', pressPlay);
 
@@ -634,7 +639,10 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (e.inputType === 'historyUndo') undo(); else redo();
   });
 
-  document.addEventListener('focusin', (e) => { lastFocus = e.target; });
+  document.addEventListener('focusin', (e) => {
+    lastFocus = e.target;
+    if (e.target !== editToggle) armed = false;
+  });
   window.addEventListener('pagehide', persist);
 
   applyOpen(ui.dockOpen);
@@ -644,7 +652,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   return {
     // Only a press that follows editing writes to the tab, and only with editing on; playing leaves it alone.
     onFretPress: (row, fret) => {
-      if (guitarMayWrite({ editing, focusInEditor: Boolean(lastFocus) && editorBox.contains(lastFocus) })) {
+      if (guitarMayWrite({ editing, armed, focusInEditor: Boolean(lastFocus) && editorBox.contains(lastFocus) })) {
         editor.writeFret(row, fret);
       }
     },

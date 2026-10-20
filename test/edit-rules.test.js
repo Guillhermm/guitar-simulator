@@ -46,6 +46,11 @@ test('guitar taps write only with editing on and an editor focused', () => {
   assert.equal(guitarMayWrite({ editing: false, focusInEditor: false }), false);
 });
 
+test('switching editing on makes the guitar write before the editor is touched', () => {
+  assert.equal(guitarMayWrite({ editing: true, focusInEditor: false, armed: true }), true);
+  assert.equal(guitarMayWrite({ editing: false, focusInEditor: false, armed: true }), false);
+});
+
 test('Play on a tab with no notes opens the examples; with notes it plays; while playing it stops', () => {
   assert.equal(playPress({ playing: false, hasNotes: false }), 'examples');
   assert.equal(playPress({ playing: false, hasNotes: true }), 'play');
