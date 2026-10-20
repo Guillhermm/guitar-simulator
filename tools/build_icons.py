@@ -36,7 +36,8 @@ GUITAR = '''
 
 def svg(scale, background):
     bg = f'<rect width="512" height="512" fill="{background}"/>' if background else ''
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">{bg}'
+    # Chrome rasterizes a manifest SVG icon at its intrinsic size, so it needs width and height.
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">{bg}'
             f'<g transform="translate(256 256) rotate(40) scale({scale}) translate(0 -5)">{GUITAR}</g></svg>\n')
 
 

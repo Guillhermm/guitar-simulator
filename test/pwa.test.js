@@ -50,6 +50,16 @@ test('the manifest makes an installable standalone app with relative URLs only',
   assert.ok(pngs.some((icon) => icon.purpose === 'maskable'));
 });
 
+test('every SVG icon in the manifest has an intrinsic size, which Chrome needs to rasterize it', () => {
+  const svgs = manifest.icons.filter((icon) => icon.type === 'image/svg+xml');
+  assert.ok(svgs.length > 0);
+  svgs.forEach((icon) => {
+    const root = /<svg\b[^>]*>/.exec(read(icon.src))[0];
+    assert.match(root, /\swidth="\d+"/, icon.src);
+    assert.match(root, /\sheight="\d+"/, icon.src);
+  });
+});
+
 // Runs sw.js against an in-memory Cache Storage and a fetch that can be switched off.
 const loadWorker = ({ online = () => true } = {}) => {
   const stores = new Map();
