@@ -16,6 +16,11 @@ test('the title and description fit what search results show', () => {
   assert.ok(description.length >= 70 && description.length <= 160, `${description.length} characters`);
 });
 
+// Search Console rechecks this tag; removing it unverifies the property.
+test('the Search Console verification tag stays on the page', () => {
+  assert.equal(meta('name', 'google-site-verification'), 'DxqtSu4Hn_O2ynYaVTJJOvFML_Eyj0wPsIRivDCW8qI');
+});
+
 test('canonical, sitemap and social tags all name the same address', () => {
   assert.match(html, new RegExp(`<link rel="canonical" href="${SITE}">`));
   assert.equal(meta('property', 'og:url'), SITE);
