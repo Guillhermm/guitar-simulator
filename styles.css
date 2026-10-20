@@ -570,6 +570,7 @@ html, body {
 
 .examples {
   width: min(32rem, calc(100vw - 2rem));
+  max-width: none;
   max-height: calc(100dvh - 4rem);
   padding: 1rem 1.25rem;
   color: var(--dock-text);
@@ -581,7 +582,14 @@ html, body {
 .examples::backdrop { background: rgb(0 0 0 / 0.45); }
 .examples-title { margin: 0 0 0.25rem; font-size: 1.125rem; }
 .examples-intro { margin: 0 0 0.75rem; font-size: 0.875rem; }
-.examples-list { margin: 0 0 1rem; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.examples-groups { display: grid; gap: 0.75rem 1rem; margin-bottom: 1rem; }
+.examples-group-title { margin: 0 0 0.375rem; font-size: 0.875rem; font-weight: 600; opacity: 0.8; }
+.examples-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+/* Side by side on a wide screen, so every song shows without scrolling. */
+@media (min-width: 48rem) {
+  .examples { width: min(52rem, calc(100vw - 4rem)); }
+  .examples-groups { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+}
 .example {
   display: flex;
   flex-direction: column;

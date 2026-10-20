@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SONGS } from '../songs/index.js';
 import { createExamplesFlow, loadExampleText } from '../src/examples.js';
+import { DEFAULT_GROUP, groupSongs } from '../src/examples-dialog.js';
 import { parseTab, readMeta } from '../src/tab.js';
 import { noteAt } from '../src/pitch.js';
 
@@ -147,4 +148,22 @@ test('a failed load reports it and neither applies nor plays', async () => {
   flow.openFromPlay();
   await flow.pick({ id: 'a' });
   assert.deepEqual(log, ['show', 'fail']);
+});
+
+test('the dialog groups songs, sorts each group by title and orders groups by their first title', () => {
+  const songs = [
+    { title: 'Zebra' }, { title: 'No. 10', group: 'Set' }, { title: 'apple' }, { title: 'No. 2', group: 'Set' },
+  ];
+  assert.deepEqual(groupSongs(songs).map(({ name, songs: s }) => [name, s.map((x) => x.title)]), [
+    [DEFAULT_GROUP, ['apple', 'Zebra']],
+    ['Set', ['No. 2', 'No. 10']],
+  ]);
+});
+
+test('the shipped examples read Guitar chords first, then the other examples, then the minuets', () => {
+  const groups = groupSongs(SONGS);
+  assert.deepEqual(groups.map((g) => g.name), [DEFAULT_GROUP, 'Minuetos Op. 1']);
+  assert.equal(groups[0].songs[0].id, 'guitar-chords');
+  assert.deepEqual(groups[1].songs.map((s) => s.id), ['minueto-op1-1', 'minueto-op1-2', 'minueto-op1-3']);
+  SONGS.filter((s) => s.arranger).forEach((s) => assert.equal(s.arranger, 'Guitar Simulator AI Team', s.id));
 });

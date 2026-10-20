@@ -1,6 +1,6 @@
 export default `Title: Rondo alla Turca
 Artist: Wolfgang Amadeus Mozart
-Arranged by: Guitar Simulator team
+Arranged by: Guitar Simulator AI Team
 Tempo: 240
 Third movement of the Piano Sonata K. 331, from the public-domain Mutopia Project edition, played once
 through without the repeats. One column is a 32nd note, so Tempo 240 plays the Allegretto at 120.

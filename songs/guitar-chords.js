@@ -1,6 +1,6 @@
 export default `Title: Guitar chords in practice
-Artist: Guitar Simulator team
-Arranged by: Guitar Simulator team
+Artist: Guitar Simulator AI Team
+Arranged by: Guitar Simulator AI Team
 Tempo: 90
 
 Each chord is strummed once, then played string by string from the bass up.

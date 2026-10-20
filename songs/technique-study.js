@@ -1,6 +1,6 @@
 export default `Title: Technique study
-Artist: Guitar Simulator team
-Arranged by: Guitar Simulator team
+Artist: Guitar Simulator AI Team
+Arranged by: Guitar Simulator AI Team
 Written for the guitar simulator, free to use
 Tempo: 80
 
