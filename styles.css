@@ -587,8 +587,18 @@ html, body {
 .examples-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
 /* Side by side on a wide screen, so every song shows without scrolling. */
 @media (min-width: 48rem) {
-  .examples { width: min(52rem, calc(100vw - 4rem)); }
-  .examples-groups { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+  .examples { width: min(56rem, calc(100vw - 4rem)); }
+  .examples-groups {
+    grid-template-columns: repeat(var(--groups, 1), minmax(0, 1fr));
+    grid-template-rows: auto repeat(var(--rows, 1), 1fr);
+    gap: 0.5rem 1rem;
+  }
+  .examples-group, .examples-list { display: grid; grid-template-rows: subgrid; row-gap: 0.5rem; }
+  .examples-group { grid-row: span var(--group-rows, 2); }
+  .examples-group-title { margin: 0; }
+  .examples-list { grid-row: span var(--rows, 1); }
+  .examples-list > li { display: flex; }
+  .example { height: 100%; justify-content: flex-start; }
 }
 .example {
   display: flex;

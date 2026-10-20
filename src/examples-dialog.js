@@ -44,7 +44,13 @@ export const buildExamplesDialog = (songs, { onPick }) => {
     });
     return choose;
   };
-  const buttons = groupSongs(songs).flatMap(({ name, songs: inGroup }, i) => {
+  const groups = groupSongs(songs);
+  // Side by side, the columns share their rows (CSS subgrid), so cards next to each other match in height.
+  columns.style.setProperty('--groups', String(groups.length));
+  const rows = Math.max(...groups.map((g) => g.songs.length));
+  columns.style.setProperty('--rows', String(rows));
+  columns.style.setProperty('--group-rows', String(rows + 1));
+  const buttons = groups.flatMap(({ name, songs: inGroup }, i) => {
     const section = make('section', 'examples-group', columns);
     const heading = make('h3', 'examples-group-title', section, name);
     heading.id = `examples-group-${i}`;

@@ -35,7 +35,7 @@ export const SONGS = [
     title: 'Rondo alla Turca',
     artist: 'Wolfgang Amadeus Mozart',
     arranger: 'Guitar Simulator AI Team',
-    note: 'The whole movement, without repeats, from a public-domain edition. Melody over bass, mostly in first position.',
+    note: 'The whole movement without repeats, from a public-domain edition, mostly in first position.',
     module: 'rondo-alla-turca.js',
   },
   {
@@ -43,7 +43,7 @@ export const SONGS = [
     title: 'Guitar chords in practice',
     artist: 'Guitar Simulator AI Team',
     arranger: 'Guitar Simulator AI Team',
-    note: 'The 31 most used shapes, open and barre, each strummed and then picked, and four progressions that use them.',
+    note: 'The 31 most used shapes, each strummed and then picked, and four progressions that use them.',
     module: 'guitar-chords.js',
   },
   {
