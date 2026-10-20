@@ -43,7 +43,7 @@ test('the manifest makes an installable standalone app with its own id and relat
   assert.equal(manifest.display, 'standalone');
   ['start_url', 'scope'].forEach((key) => assert.equal(manifest[key], './', key));
   // The id resolves against the origin, not the manifest's folder, so './' would claim the whole
-  // github.io origin and collide with any other app there that did the same (2048 4D does).
+  // github.io origin and collide with any other app there that did the same.
   const site = 'https://guillhermm.github.io/guitar-simulator/';
   assert.equal(new URL(manifest.id, new URL(site).origin).href, site);
   const pngs = manifest.icons.filter((icon) => icon.type === 'image/png');
