@@ -1,3 +1,7 @@
+// Copyright (c) Guilherme Almeida Zeni. All rights reserved.
+// This minuet and its arrangement are not covered by the MIT license in LICENSE: they ship here only
+// so the simulator can play them. Copying, arranging or redistributing the music needs the composer's
+// permission.
 export default `Title: Minueto Op. 1 No. 2 in G minor
 Artist: Guilherme A. Zeni
 Arranged by: Guitar Simulator AI Team

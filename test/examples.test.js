@@ -156,3 +156,13 @@ test('the shipped examples read Guitar chords first, then the other examples, th
   assert.deepEqual(groups[1].songs.map((s) => s.id), ['minueto-op1-1', 'minueto-op1-2', 'minueto-op1-3']);
   SONGS.filter((s) => s.arranger).forEach((s) => assert.equal(s.arranger, 'Guitar Simulator AI Team', s.id));
 });
+
+test("Guilherme's own compositions carry a notice that keeps them out of the MIT license", async () => {
+  const { readFileSync } = await import('node:fs');
+  const own = SONGS.filter((song) => song.artist === 'Guilherme A. Zeni');
+  assert.equal(own.length, 3);
+  own.forEach((song) => {
+    const source = readFileSync(new URL(`../songs/${song.module}`, import.meta.url), 'utf8');
+    assert.match(source, /^\/\/ Copyright \(c\) Guilherme Almeida Zeni\. All rights reserved\.\n\/\/ [^\n]*not covered by the MIT license/, song.id);
+  });
+});

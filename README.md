@@ -134,7 +134,7 @@ The LinkedIn "in" logo and the GitHub Invertocat are trademarks of LinkedIn Corp
 
 The code is under the [MIT license](LICENSE), and so are the team's own examples (the chords example, the technique study and the Rondo alla Turca arrangement, whose music is in the public domain). Two things are not:
 
-- The minuets are Guilherme's compositions. Their guitar arrangements ship here so the simulator can play them, but the music stays under his copyright.
+- The minuets are Guilherme's compositions. Their guitar arrangements ship here so the simulator can play them, but the music stays under his copyright, all rights reserved; each minuet file opens with that notice.
 - The LinkedIn and GitHub marks belong to their owners (see Brand marks).
 
 ## How the sound is made
