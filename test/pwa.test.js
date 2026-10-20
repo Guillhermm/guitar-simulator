@@ -37,11 +37,15 @@ test('the page links the manifest and icons, and its CSP lets them and the worke
   assert.equal(pngSize('assets/icon/favicon-32.png'), '32x32');
 });
 
-test('the manifest makes an installable standalone app with relative URLs only', () => {
+test('the manifest makes an installable standalone app with its own id and relative URLs', () => {
   assert.equal(manifest.name, 'Guitar Simulator');
   assert.ok(manifest.short_name.length <= 12);
   assert.equal(manifest.display, 'standalone');
-  ['id', 'start_url', 'scope'].forEach((key) => assert.equal(manifest[key], './', key));
+  ['start_url', 'scope'].forEach((key) => assert.equal(manifest[key], './', key));
+  // The id resolves against the origin, not the manifest's folder, so './' would claim the whole
+  // github.io origin and collide with any other app there that did the same (2048 4D does).
+  const site = 'https://guillhermm.github.io/guitar-simulator/';
+  assert.equal(new URL(manifest.id, new URL(site).origin).href, site);
   const pngs = manifest.icons.filter((icon) => icon.type === 'image/png');
   pngs.forEach((icon) => assert.equal(pngSize(icon.src), icon.sizes, icon.src));
   manifest.icons.forEach((icon) => assert.ok(!icon.src.startsWith('/'), icon.src));
