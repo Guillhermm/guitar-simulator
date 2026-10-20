@@ -7,7 +7,7 @@ import { buildIcon } from './icons.js';
 import { exportFile, readImportedFile, fileBase, ImportError } from './files.js';
 import { printTab } from './print.js';
 import {
-  canStartNew, clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
+  afterLoad, canStartNew, clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
 } from './edit-rules.js';
 import { createHistory } from './history.js';
 import { loadExampleText, createExamplesFlow } from './examples.js';
@@ -519,7 +519,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     show: () => examplesDialog.open(),
     load: loadExampleText,
     apply: (next) => replaceText(next),
-    start: () => start(),
+    start: () => { if (afterLoad('example') === 'play') start(); },
     fail: () => { flash('Could not load that example.'); refresh(); },
   });
   const examplesDialog = buildExamplesDialog(SONGS, { onPick: (entry) => flow.pick(entry) });
@@ -547,6 +547,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   const loadFile = async (file) => {
     try {
       replaceText(await readImportedFile(file));
+      if (afterLoad('file') === 'focus-play') play.focus({ preventScroll: true });
     } catch (error) {
       message = error instanceof ImportError ? error.message : 'Could not open that file.';
       refresh();

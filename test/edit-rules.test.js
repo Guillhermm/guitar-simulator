@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canStartNew, clearDocument, clearedText, editingLabel, guitarMayWrite, historyKey, initialEditing, isBlankDocument,
+  afterLoad, canStartNew, clearDocument, clearedText, editingLabel, guitarMayWrite, historyKey, initialEditing, isBlankDocument,
   playPress,
 } from '../src/edit-rules.js';
 import { emptyTab, withMeta, withTempo } from '../src/tab.js';
@@ -67,4 +67,9 @@ test('history keys: Ctrl/Cmd+Z undoes, with Shift it redoes, Ctrl+Y redoes', () 
   assert.equal(historyKey({ key: 'y', metaKey: true }), null);
   assert.equal(historyKey({ key: 'z' }), null);
   assert.equal(historyKey({ key: 'z', ctrlKey: true, altKey: true }), null);
+});
+
+test('an example plays when it loads; an opened or dropped file only loads, with Play focused', () => {
+  assert.equal(afterLoad('example'), 'play');
+  assert.equal(afterLoad('file'), 'focus-play');
 });

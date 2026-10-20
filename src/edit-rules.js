@@ -29,6 +29,10 @@ export const editingLabel = (editing) => (editing ? 'Editing on' : 'Editing off'
 // on does not focus the editor itself, since on a phone that raises the keyboard over the guitar.
 export const guitarMayWrite = ({ editing, focusInEditor, armed = false }) => editing && (focusInEditor || armed);
 
+// A picked example plays at once; an opened or dropped file may be there to edit or print, so it only
+// loads, with focus on Play so one key starts it (Guilherme, 2026-10-20, after product and design).
+export const afterLoad = (source) => (source === 'example' ? 'play' : 'focus-play');
+
 // Play on a tab with no notes opens the example list instead of doing nothing.
 export const playPress = ({ playing, hasNotes }) => {
   if (playing) return 'stop';
