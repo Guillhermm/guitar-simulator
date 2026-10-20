@@ -57,7 +57,7 @@ The dock under the guitar holds a tab: write it, play it back on the guitar, ope
 
 The Examples button in the tools (and Play, when the tab has no notes) opens a dialog listing the songs in `songs/index.js`: title, artist and arranger. Choosing one loads it as the document, as a step in the undo history, turns editing off and closes the dialog. When the dialog was opened by Play, the song starts playing right away; from the Examples button it never does. Escape or Close dismisses it.
 
-The list holds two placeholders: a technique study written by the team for this simulator, and the opening bars of Beethoven's "Ode to Joy" in a simple arrangement on the two top strings. Guilherme adds his own versions later.
+The list opens with Guilherme's three piano minuets, Op. 1 Nos. 1 to 3, arranged for guitar by the team from his own MIDI files of the scores, with his permission as the composer. They keep his keys, tempos and form; the melody moves down an octave (two where the piano writes 8va), the left hand becomes a bass on the beats with an inner voice where one hand can reach it, and every chord fits a four-fret span (five above the 5th fret). Where a piano line runs past the guitar's range it folds down an octave at a bar line. Each block is exactly one bar, because a `|` inside a line takes a column of time: No. 1 is in sixteenths at 180, turning to 6/4 for its last three bars, and Nos. 2 and 3 use a column per 32nd note at Tempo 200, so that a note on the same string in the next sixteenth still has a dash before it. After them come a technique study written by the team for this simulator, and the opening bars of Beethoven's "Ode to Joy" in a simple arrangement on the two top strings.
 
 To add a song:
 
@@ -77,7 +77,7 @@ To add a song:
 
 2. Add an entry to `SONGS` in `songs/index.js`: `{ id, title, artist, arranger, note, module: '<id>.js' }`. The title, artist and arranger must match the header lines.
 
-Songs are loaded with a dynamic `import()`, which the page's Content Security Policy allows (`script-src 'self'`); `fetch` is blocked by `connect-src 'none'`. `test/examples.test.js` checks that every entry loads and has its headers.
+Songs are loaded with a dynamic `import()`, which the page's Content Security Policy allows (`script-src 'self'`); `fetch` is blocked by `connect-src 'none'`. `test/examples.test.js` checks that every entry loads and has its headers, and that each minuet keeps one bar per block, opens with its melody and never asks for more than one hand's span.
 
 ## Brand marks
 

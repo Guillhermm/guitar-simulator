@@ -57,6 +57,37 @@ test('Ode to Joy plays E E F G G F E D C C D E E D D', async () => {
   assert.deepEqual(played, names.map((n) => midi[n]));
 });
 
+const MINUETS = [
+  // One bar per block, so bar lines cost no time. No. 1 turns to 6/4 for its last three bars;
+  // Nos. 2 and 3 use a column per 32nd note at twice the tempo.
+  { id: 'minueto-op1-1', tempo: 180, widths: [...Array(40).fill(16), 24, 24, 24], opening: [[0, 68], [2, 66], [4, 64]] },
+  { id: 'minueto-op1-2', tempo: 200, widths: Array(33).fill(32), opening: [[0, 46], [4, 48], [6, 50], [8, 51]] },
+  { id: 'minueto-op1-3', tempo: 200, widths: Array(41).fill(32), opening: [[0, 67], [16, 64], [28, 67]] },
+];
+
+const loadSong = async (id) => {
+  const song = SONGS.find((s) => s.id === id);
+  return parseTab((await import(new URL(`../songs/${song.module}`, import.meta.url).href)).default);
+};
+
+for (const { id, tempo, widths, opening } of MINUETS) {
+  test(`${id} keeps its meter, opens with the melody and fits one hand`, async () => {
+    const parsed = await loadSong(id);
+    assert.equal(parsed.tempo, tempo);
+    assert.equal(parsed.skipped, 0);
+    assert.deepEqual(parsed.blocks.map((b) => b.width), widths);
+    const pitches = new Map(parsed.events.map((e) => [e.step, e.notes.map((n) => noteAt(5 - n.row, n.fret))]));
+    opening.forEach(([step, midi]) => assert.ok(pitches.get(step)?.includes(midi), `step ${step}`));
+    parsed.events.forEach((event) => {
+      const frets = event.notes.map((n) => n.fret).filter((f) => f > 0);
+      if (!frets.length) return;
+      const low = Math.min(...frets);
+      assert.ok(Math.max(...frets) - low <= (low >= 5 ? 4 : 3), `step ${event.step}: ${frets}`);
+      assert.ok(Math.max(...frets) <= 15, `step ${event.step}: ${frets}`);
+    });
+  });
+}
+
 const harness = ({ load = async () => 'TEXT' } = {}) => {
   const log = [];
   const flow = createExamplesFlow({
