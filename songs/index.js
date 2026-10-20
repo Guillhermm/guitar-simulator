@@ -26,19 +26,19 @@ export const SONGS = [
     module: 'minueto-op1-3.js',
   },
   {
+    id: 'guitar-chords',
+    title: 'Guitar chords in practice',
+    artist: 'Guitar Simulator team',
+    arranger: 'Guitar Simulator team',
+    note: 'The 31 most used shapes, open and barre, each strummed and then picked, and four progressions that use them.',
+    module: 'guitar-chords.js',
+  },
+  {
     id: 'technique-study',
     title: 'Technique study',
     artist: 'Guitar Simulator team',
     arranger: 'Guitar Simulator team',
     note: 'Every technique the simulator plays, one short phrase each.',
     module: 'technique-study.js',
-  },
-  {
-    id: 'ode-to-joy',
-    title: 'Ode to Joy (opening)',
-    artist: 'Ludwig van Beethoven',
-    arranger: 'Guitar Simulator team',
-    note: 'The first four bars of the melody on the top two strings.',
-    module: 'ode-to-joy.js',
   },
 ];

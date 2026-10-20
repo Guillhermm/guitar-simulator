@@ -110,7 +110,7 @@ test('online the worker serves the network copy and keeps it; offline it serves 
   const offline = await worker.get('src/main.js');
   assert.equal(offline.cached, true);
   assert.equal(offline.body, `fresh ${worker.origin}src/main.js`);
-  assert.equal((await worker.get('songs/ode-to-joy.js')).body, `body of ${worker.origin}songs/ode-to-joy.js`);
+  assert.equal((await worker.get('songs/guitar-chords.js')).body, `body of ${worker.origin}songs/guitar-chords.js`);
 });
 
 test('offline, an uncached page address opens the app and an uncached file still fails', async () => {
@@ -137,7 +137,7 @@ test('activating a new version drops the old caches', async () => {
   worker.stores.set('guitar-simulator-v0', new Map());
   await worker.fire('install');
   await worker.fire('activate');
-  assert.deepEqual([...worker.stores.keys()], ['guitar-simulator-v1']);
+  assert.deepEqual([...worker.stores.keys()], ['guitar-simulator-v2']);
 });
 
 test('registration asks for sw.js and degrades to null without support or on failure', async () => {

@@ -42,19 +42,37 @@ test('loadExampleText resolves the module next to the index, under songs/', asyn
   assert.deepEqual(seen, ['../songs/x.js']);
 });
 
-test('Ode to Joy plays E E F G G F E D C C D E E D D', async () => {
-  const song = SONGS.find((s) => s.id === 'ode-to-joy');
+const ROOTS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const QUALITIES = { '': [0, 4, 7], m: [0, 3, 7], 7: [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], sus2: [0, 2, 7], sus4: [0, 5, 7] };
+
+const parseChord = (name) => {
+  const [, letter, accidental, quality] = /^([A-G])([#b]?)(.*)$/.exec(name);
+  return { root: (ROOTS[letter] + ({ '#': 1, b: -1 }[accidental] ?? 0) + 12) % 12, quality };
+};
+
+// The pitch classes a chord name spells, from music theory rather than from the tab.
+const spell = (name) => {
+  const { root, quality } = parseChord(name);
+  return QUALITIES[quality].map((i) => (root + i) % 12).sort((x, y) => x - y);
+};
+
+// Open shapes may leave out the fifth (C7 is x32310), as guitarists commonly do; nothing else may go.
+test('every chord shape strums the notes its name spells, at most without the fifth', async () => {
+  const song = SONGS.find((s) => s.id === 'guitar-chords');
   const text = (await import(new URL(`../songs/${song.module}`, import.meta.url).href)).default;
+  const shapes = text.slice(0, text.indexOf('Now the chords at work'));
+  const names = shapes.split('\n').filter((line) => /^ {2}[A-G]/.test(line)).flatMap((line) => line.trim().split(/\s+/));
+  assert.equal(names.length, 31);
   const parsed = parseTab(text);
-  assert.equal(parsed.tempo, 100);
-  const names = 'E E F G G F E D C C D E E D D'.split(' ');
-  const midi = { C: 60, D: 62, E: 64, F: 65, G: 67 };
-  const played = parsed.events.map((event) => {
-    assert.equal(event.notes.length, 1);
-    const { row, fret } = event.notes[0];
-    return noteAt(5 - row, fret);
+  assert.equal(parsed.skipped, 0);
+  const strums = parsed.events.filter((e) => e.notes.length >= 3).slice(0, names.length);
+  strums.forEach((event, i) => {
+    const classes = [...new Set(event.notes.map((n) => noteAt(5 - n.row, n.fret) % 12))].sort((a, b) => a - b);
+    const spelled = spell(names[i]);
+    const fifth = (parseChord(names[i]).root + 7) % 12;
+    assert.ok(classes.every((c) => spelled.includes(c)), `${names[i]} plays ${classes}`);
+    assert.deepEqual(spelled.filter((c) => !classes.includes(c) && c !== fifth), [], names[i]);
   });
-  assert.deepEqual(played, names.map((n) => midi[n]));
 });
 
 const MINUETS = [
