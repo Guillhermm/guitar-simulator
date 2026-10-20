@@ -19,6 +19,7 @@
   --bar-h: 3.5rem;
   --body-h: 16rem;
   --reserve: 3.5rem;
+  --tools-h: 7rem;
   --edge: 0.5rem;
   --open-w: 0px;
   --k: 1;
@@ -647,17 +648,23 @@ html, body {
 }
 
 
-@media (orientation: portrait) and (max-width: 48rem) {
-  /* The guitar stands upright. Its layout box keeps the landscape shape and rotates about its
-     center, so the width below is the guitar's length down the screen. */
-  :root { --body-h: 44dvh; }
-  /* The tools take two 3rem rows on a phone: editing on the first, files on the second. */
-  .app { --open-h: calc(var(--body-h) + 6rem); }
-  .app[data-meta="open"] { --body-h: 64dvh; }
+/* Portrait phones and tablets: the guitar stands upright. Its layout box keeps the landscape shape
+   and rotates about its center, so the width below is the guitar's length down the screen. A
+   tablet keeps the desktop dock, a little taller so the fields leave room for a whole system. */
+@media (orientation: portrait) and (max-width: 64rem) {
+  :root { --body-h: 20rem; }
   .guitar {
     width: min(calc(100dvh - var(--bar-h) - var(--reserve)), calc((100vw - 2 * var(--edge)) * 1240 / 480));
     transform: rotate(90deg);
   }
+}
+
+@media (orientation: portrait) and (max-width: 48rem) {
+  /* Enough for one six-string system under the read-only label; the guitar gets the rest. */
+  :root { --body-h: min(17rem, 32dvh); }
+  /* The tools take two rows on a phone: editing on the first, files on the second. */
+  .app { --open-h: calc(var(--body-h) + var(--tools-h)); }
+  .app[data-meta="open"] { --body-h: 64dvh; }
   .transport { gap: 0.25rem; padding: 0 0.5rem; }
   .btn { padding: 0 0.5rem; }
   .btn-play { flex: 1; min-width: 0; }
@@ -670,9 +677,9 @@ html, body {
     right: 0;
     /* The containing block is the transport's padding box, inside its 1px top border. */
     bottom: calc(100% + 1px);
-    height: 6rem;
+    height: var(--tools-h);
     flex-wrap: wrap;
-    align-content: space-evenly;
+    align-content: center;
     padding: 0 0.5rem;
     gap: 0 0.25rem;
     background: var(--dock-bg);
@@ -681,13 +688,13 @@ html, body {
   }
   .tools .seg { margin-right: auto; }
   /* The first divider becomes the line break between the two rows. */
-  .tools .rule:first-of-type { flex-basis: 100%; height: 0; margin: 0; background: none; }
+  .tools .rule:first-of-type { flex-basis: 100%; height: 0; margin: 0.25rem 0; background: none; }
   .seg span { min-width: 2.75rem; padding: 0 0.5rem; }
   .app[data-open="false"] .tools {
     transform: translateY(100%);
     transition: transform 240ms var(--ease-close), opacity 160ms linear, visibility 0s 240ms;
   }
-  .dock-body { bottom: calc(var(--bar-h) + 6rem); }
+  .dock-body { bottom: calc(var(--bar-h) + var(--tools-h)); }
 }
 
 /* Short landscape: the bar becomes a rail on the right edge and the body slides in on X. */
@@ -728,9 +735,9 @@ html, body {
     top: 0;
     right: calc(100% + 1px);
     width: var(--body-w);
-    height: 6rem;
+    height: var(--tools-h);
     flex-wrap: wrap;
-    align-content: space-evenly;
+    align-content: center;
     padding: 0 0.5rem;
     gap: 0 0.25rem;
     background: var(--dock-bg);
@@ -744,7 +751,7 @@ html, body {
     transition: transform 240ms var(--ease-close), opacity 160ms linear, visibility 0s 240ms;
   }
   .dock-body {
-    top: 6rem;
+    top: var(--tools-h);
     bottom: 0;
     left: auto;
     right: var(--rail-w);
@@ -809,7 +816,7 @@ html, body {
   /* Two rows of tools share 18rem: the rules go, except the first, which breaks the rows. */
   .tools { padding: 0 0.25rem; gap: 0 0.125rem; }
   .tools .rule { display: none; }
-  .tools .rule:first-of-type { display: block; flex-basis: 100%; height: 0; margin: 0; background: none; }
+  .tools .rule:first-of-type { display: block; flex-basis: 100%; height: 0; margin: 0.25rem 0; background: none; }
   .credit-icons [data-tip]::after {
     top: auto;
     bottom: calc(100% + 0.25rem);

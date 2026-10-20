@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { ASPECT, MIN_K, fit, openScale } from '../src/stage-fit.js';
 
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} is not ${b}`);
@@ -53,4 +54,11 @@ test('an open region with nothing left floors at MIN_K instead of zero', () => {
 
 test('k never exceeds 1 even for a negative inset', () => {
   assert.equal(openScale({ w: 800, h: 400 }, { w: 0, h: -50 }), 1);
+});
+
+test('the scale treats the guitar as upright exactly where the CSS rotates it', () => {
+  const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+  const query = /portrait: window\.matchMedia\('([^']+)'\)/.exec(read('src/main.js'))[1];
+  const rotating = [...read('styles.css').matchAll(/@media ([^{]+) \{(?:(?!@media)[\s\S])*?\.guitar \{[^}]*rotate\(90deg\)/g)].map((m) => m[1]);
+  assert.deepEqual(rotating, [query]);
 });

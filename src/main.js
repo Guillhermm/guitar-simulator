@@ -28,7 +28,8 @@ installStageFit({
   root,
   stage: document.getElementById('stage'),
   probe: document.getElementById('stage-probe'),
-  portrait: window.matchMedia('(orientation: portrait) and (max-width: 48rem)'),
+  // Matches the CSS that stands the guitar upright, on tablets as well as phones.
+  portrait: window.matchMedia('(orientation: portrait) and (max-width: 64rem)'),
 });
 // The first state is set without animating from the markup's default to the saved one.
 requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('preload')));
