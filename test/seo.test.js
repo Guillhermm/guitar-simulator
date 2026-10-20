@@ -18,7 +18,7 @@ test('the title and description fit what search results show', () => {
 
 // Search Console rechecks this tag; removing it unverifies the property.
 test('the Search Console verification tag stays on the page', () => {
-  assert.equal(meta('name', 'google-site-verification'), 'DxqtSu4Hn_O2ynYaVTJJOvFML_Eyj0wPsIRivDCW8qI');
+  assert.equal(meta('name', 'google-site-verification'), 'IMB4bqRBXLrR92ODWWzF0c8qv-83lzgZZW2WHXw-ZCA');
 });
 
 test('canonical, sitemap and social tags all name the same address', () => {
