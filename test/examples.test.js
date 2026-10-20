@@ -75,12 +75,14 @@ test('every chord shape strums the notes its name spells, at most without the fi
   });
 });
 
-const MINUETS = [
+const ARRANGEMENTS = [
   // One bar per block, so bar lines cost no time. No. 1 turns to 6/4 for its last three bars;
-  // Nos. 2 and 3 use a column per 32nd note at twice the tempo.
+  // Nos. 2 and 3 and the Rondo use a column per 32nd note at twice the tempo. The Rondo opens
+  // with a quarter-note pickup.
   { id: 'minueto-op1-1', tempo: 180, widths: [...Array(40).fill(16), 24, 24, 24], opening: [[0, 68], [2, 66], [4, 64]] },
   { id: 'minueto-op1-2', tempo: 200, widths: Array(33).fill(32), opening: [[0, 46], [4, 48], [6, 50], [8, 51]] },
   { id: 'minueto-op1-3', tempo: 200, widths: Array(41).fill(32), opening: [[0, 67], [16, 64], [28, 67]] },
+  { id: 'rondo-alla-turca', tempo: 240, widths: [8, ...Array(127).fill(16)], opening: [[0, 59], [2, 57], [4, 56], [6, 57], [8, 60]] },
 ];
 
 const loadSong = async (id) => {
@@ -88,7 +90,7 @@ const loadSong = async (id) => {
   return parseTab((await import(new URL(`../songs/${song.module}`, import.meta.url).href)).default);
 };
 
-for (const { id, tempo, widths, opening } of MINUETS) {
+for (const { id, tempo, widths, opening } of ARRANGEMENTS) {
   test(`${id} keeps its meter, opens with the melody and fits one hand`, async () => {
     const parsed = await loadSong(id);
     assert.equal(parsed.tempo, tempo);

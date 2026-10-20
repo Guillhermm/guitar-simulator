@@ -26,6 +26,14 @@ export const SONGS = [
     module: 'minueto-op1-3.js',
   },
   {
+    id: 'rondo-alla-turca',
+    title: 'Rondo alla Turca',
+    artist: 'Wolfgang Amadeus Mozart',
+    arranger: 'Guitar Simulator team',
+    note: 'The whole movement, without repeats, from a public-domain edition. Melody over bass, mostly in first position.',
+    module: 'rondo-alla-turca.js',
+  },
+  {
     id: 'guitar-chords',
     title: 'Guitar chords in practice',
     artist: 'Guitar Simulator team',

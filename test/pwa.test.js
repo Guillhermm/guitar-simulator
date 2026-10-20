@@ -137,7 +137,7 @@ test('activating a new version drops the old caches', async () => {
   worker.stores.set('guitar-simulator-v0', new Map());
   await worker.fire('install');
   await worker.fire('activate');
-  assert.deepEqual([...worker.stores.keys()], ['guitar-simulator-v2']);
+  assert.deepEqual([...worker.stores.keys()], ['guitar-simulator-v3']);
 });
 
 test('registration asks for sw.js and degrades to null without support or on failure', async () => {
