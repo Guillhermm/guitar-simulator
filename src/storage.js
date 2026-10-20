@@ -7,6 +7,9 @@ export const MIN_TEMPO = 40;
 export const MAX_TEMPO = 240;
 
 const byteLength = (s) => new TextEncoder().encode(s).length;
+// The one size limit for a document, however it arrives: typed, pasted, opened or restored.
+export const fitsDocument = (text) => byteLength(text) <= MAX_BYTES;
+
 const validTempo = (t) => Number.isFinite(t) && t >= MIN_TEMPO && t <= MAX_TEMPO;
 
 // Anything that is not a well-formed saved document falls back to an empty tab. A missing or invalid
@@ -17,7 +20,7 @@ export const readSaved = (raw) => {
   let data;
   try { data = JSON.parse(raw); } catch { return fallback; }
   if (!data || typeof data !== 'object' || typeof data.text !== 'string') return fallback;
-  if (byteLength(data.text) > MAX_BYTES) return fallback;
+  if (!fitsDocument(data.text)) return fallback;
   const fromText = readTempo(data.text);
   const tempo = [data.tempo, fromText].find(validTempo) ?? DEFAULT_TEMPO;
   return { text: data.text, tempo };

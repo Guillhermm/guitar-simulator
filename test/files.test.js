@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeImported, exportFile, readImportedFile, fileBase, slug, missingFields } from '../src/files.js';
+import { normalizeImported, exportFile, readImportedFile, fileBase, slug, missingFields, looksBinary, ImportError } from '../src/files.js';
 import { MAX_BYTES } from '../src/storage.js';
 
 test('normalizeImported strips a BOM and converts CRLF and lone CR to LF', () => {
@@ -98,4 +98,19 @@ test('missingFields lists the missing title and artist', () => {
   assert.deepEqual(missingFields({ title: '', artist: '' }), { fields: ['title', 'artist'] });
   assert.deepEqual(missingFields({ title: 'a', artist: ' ' }), { fields: ['artist'] });
   assert.deepEqual(missingFields({ artist: 'b' }), { fields: ['title'] });
+});
+
+test('looksBinary flags NUL bytes and files full of control characters, not a tab with a stray one', () => {
+  assert.equal(looksBinary('Title: Canção\ne|-0-|\n'), false);
+  assert.equal(looksBinary(`${'e|-0-|\n'.repeat(50)}\u0007`), false);
+  assert.equal(looksBinary('e|-0-|\u0000'), true);
+  assert.equal(looksBinary(String.fromCharCode(...Array.from({ length: 200 }, (_, i) => i % 32))), true);
+  assert.equal(looksBinary('\uFFFD'.repeat(10) + 'abc'), true);
+});
+
+test('readImportedFile refuses a binary file with a message meant for the person opening it', async () => {
+  const file = { size: 10, text: async () => '\u0000\u0001\u0002PK' };
+  await assert.rejects(readImportedFile(file), (error) => error instanceof ImportError && /not a text file/.test(error.message));
+  const big = { size: 300 * 1024, text: async () => '' };
+  await assert.rejects(readImportedFile(big), (error) => error instanceof ImportError && /limit is 256 KB/.test(error.message));
 });

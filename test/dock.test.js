@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { swapEditor, createTabPanel } from '../src/tab-panel.js';
-import { UI_KEY } from '../src/storage.js';
+import { MAX_BYTES, UI_KEY } from '../src/storage.js';
 
 const fakeEditor = (name, cue = 0, log = []) => {
   const editor = {
@@ -9,6 +9,7 @@ const fakeEditor = (name, cue = 0, log = []) => {
     log,
     getCue: () => cue,
     setEditable: () => {},
+    update: () => { editor.log.push([name, 'update']); },
     setCue: (step) => { editor.log.push([name, 'setCue', step]); },
     setPlayhead: (event) => { editor.log.push([name, 'setPlayhead', event]); },
     dispose: () => { editor.log.push([name, 'dispose']); },
@@ -83,9 +84,10 @@ const withBrowser = (phone, fn) => {
 
 const mount = ({ phone = false, ui = null }) => withBrowser(phone, () => {
   const built = [];
+  const seen = {};
   const editors = {
-    text: () => { built.push('text'); return fakeEditor('text'); },
-    grid: () => { built.push('grid'); return fakeEditor('grid'); },
+    text: (box, options) => { built.push('text'); seen.options = options; seen.editor = fakeEditor('text'); return seen.editor; },
+    grid: (box, options) => { built.push('grid'); seen.options = options; seen.editor = fakeEditor('grid'); return seen.editor; },
   };
   const writes = [];
   const storage = {
@@ -94,8 +96,20 @@ const mount = ({ phone = false, ui = null }) => withBrowser(phone, () => {
   };
   const root = { dataset: {} };
   createTabPanel({ dock: stub(), root, player: stub(), guitar: stub(), editors, storage });
-  return { built, root, writes };
+  return { built, root, writes, seen };
 });
+
+test('an edit past the size limit is refused and the editor goes back to the accepted text', () => withBrowser(false, () => {
+  const { seen } = mount({});
+  const before = seen.options.getText();
+  seen.options.setText(`${before}x`);
+  const accepted = seen.options.getText();
+  assert.equal(accepted, `${before}x`);
+  seen.editor.log.length = 0;
+  seen.options.setText('e'.repeat(MAX_BYTES + 1));
+  assert.equal(seen.options.getText(), accepted);
+  assert.deepEqual(seen.editor.log, [['text', 'update']]);
+}));
 
 test('with nothing saved the panel builds the Text editor, open on desktop', () => {
   const { built, root } = mount({});

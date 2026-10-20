@@ -2,9 +2,9 @@ import { parseTab, withTempo, readMeta } from './tab.js';
 import { buildSongFields, summaryOf, refusalStatus, saveCheck, textWithField } from './song-fields.js';
 import { missingFields } from './files.js';
 import { createScheduler } from './scheduler.js';
-import { KEY, UI_KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, readSaved, readUi, save, saveUi } from './storage.js';
+import { KEY, UI_KEY, DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO, MAX_BYTES, fitsDocument, readSaved, readUi, save, saveUi } from './storage.js';
 import { buildIcon } from './icons.js';
-import { exportFile, readImportedFile, fileBase } from './files.js';
+import { exportFile, readImportedFile, fileBase, ImportError } from './files.js';
 import { printTab } from './print.js';
 import {
   canStartNew, clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
@@ -312,6 +312,13 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     getText: () => text,
     setText: (next, group = null) => {
       if (!editing) return;
+      // Over the limit the edit is undone in the editor, so the saved copy can always be reopened.
+      if (!fitsDocument(next)) {
+        message = `Tabs are limited to ${MAX_BYTES / 1024} KB, so that change was not made.`;
+        editor.update();
+        refresh();
+        return;
+      }
       apply(next, group);
       refresh();
     },
@@ -535,8 +542,8 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   const loadFile = async (file) => {
     try {
       replaceText(await readImportedFile(file));
-    } catch {
-      message = 'Could not open that file.';
+    } catch (error) {
+      message = error instanceof ImportError ? error.message : 'Could not open that file.';
       refresh();
     }
   };
