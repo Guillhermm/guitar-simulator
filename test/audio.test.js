@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPlayer } from '../src/audio.js';
+import { createPlayer, preferPlayback } from '../src/audio.js';
 
 const fakeParam = (value = 1) => {
   const calls = [];
@@ -319,4 +319,12 @@ test('silence before any play creates no context', () => {
   let created = 0;
   createPlayer({ createContext: () => { created++; return fakeContext().ctx; } }).silence();
   assert.equal(created, 0);
+});
+
+test('the page asks iOS for a playback session so the silent switch does not mute it', () => {
+  const nav = { audioSession: { type: 'auto' } };
+  preferPlayback(nav);
+  assert.equal(nav.audioSession.type, 'playback');
+  assert.doesNotThrow(() => preferPlayback({}));
+  assert.doesNotThrow(() => preferPlayback(undefined));
 });

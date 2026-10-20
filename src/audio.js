@@ -21,7 +21,16 @@ const KINDS = {
 
 const ratio = (semitones) => 2 ** (semitones / 12);
 
-const defaultCreateContext = () => new AudioContext();
+// iOS treats Web Audio as ambient sound, which the ring/silent switch mutes; declaring the page a
+// media player lets a tap sound with the phone on silent, as a video would. Other browsers lack the API.
+export const preferPlayback = (nav = globalThis.navigator) => {
+  if (nav?.audioSession) nav.audioSession.type = 'playback';
+};
+
+const defaultCreateContext = () => {
+  preferPlayback();
+  return new AudioContext();
+};
 
 // The context is created on the first play() call, inside the user gesture,
 // so the same click unlocks audio and sounds the note.
