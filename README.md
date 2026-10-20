@@ -130,6 +130,13 @@ The LinkedIn "in" logo and the GitHub Invertocat are trademarks of LinkedIn Corp
 - The GitHub mark in `src/credit.js` is the path data of `GitHub_Invertocat_Black.svg` from `GitHub_Logos.zip` on <https://brand.github.com/foundations/logo>, copied unchanged and filled `#000` or `#fff` by the color scheme.
 - The profile link's icon is the wave of the guilherme.zenus.systems favicon without its square (`PROFILE_MARK` in `src/credit.js`), stroked in the same black or white as the other two marks.
 
+## License
+
+The code is under the [MIT license](LICENSE), and so are the team's own examples (the chords example, the technique study and the Rondo alla Turca arrangement, whose music is in the public domain). Two things are not:
+
+- The minuets are Guilherme's compositions. Their guitar arrangements ship here so the simulator can play them, but the music stays under his copyright.
+- The LinkedIn and GitHub marks belong to their owners (see Brand marks).
+
 ## How the sound is made
 
 Nothing is sampled. Each note is synthesized with the Karplus-Strong plucked-string algorithm (`src/pluck.js`): a burst of noise circulates in a delay line one period long, and a lowpass in the loop takes the high harmonics out faster than the low ones, the way a real string loses its brightness. A first-order allpass supplies the fractional part of the delay, so pitch is not rounded to whole samples; every note lands within a cent of equal temperament. Notes are rendered once into an `AudioBuffer`, cached per note and kind, and played through a gain and a limiter (`src/audio.js`). Notes on different strings overlap, so chords ring. On iOS, Safari treats Web Audio as ambient sound that the ring/silent switch mutes, so before the audio context is created the page sets `navigator.audioSession.type` to `playback` where the browser has that API; this follows WebKit bug reports rather than Apple documentation and has not yet been checked on an iPhone.
