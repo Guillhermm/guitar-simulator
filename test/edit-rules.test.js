@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  clearDocument, clearedText, editingLabel, guitarMayWrite, historyKey, initialEditing, isBlankDocument,
+  canStartNew, clearDocument, clearedText, editingLabel, guitarMayWrite, historyKey, initialEditing, isBlankDocument,
   playPress,
 } from '../src/edit-rules.js';
 import { emptyTab, withMeta, withTempo } from '../src/tab.js';
@@ -15,7 +15,14 @@ test('editing starts on for an empty document and off for a song', () => {
   assert.equal(initialEditing(withMeta(emptyTab(), { title: 'Only a title' })), false);
 });
 
-test('after Clear the document is empty, so the same rule turns editing on', () => {
+test('New is offered for any document that is not already blank, whether editing is on or off', () => {
+  assert.equal(canStartNew(song), true);
+  assert.equal(canStartNew(emptyTab()), false);
+  assert.equal(canStartNew(withTempo(emptyTab(), 100)), false);
+  assert.equal(canStartNew(clearDocument(song).text), false);
+});
+
+test('after New the document is empty, so the same rule turns editing on', () => {
   const cleared = clearDocument(song).text;
   assert.equal(isBlankDocument(cleared), true);
   assert.equal(initialEditing(cleared), true);

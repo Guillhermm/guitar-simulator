@@ -7,7 +7,7 @@ import { buildIcon } from './icons.js';
 import { exportFile, readImportedFile, fileBase } from './files.js';
 import { printTab } from './print.js';
 import {
-  clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
+  canStartNew, clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
 } from './edit-rules.js';
 import { createHistory } from './history.js';
 import { loadExampleText, createExamplesFlow } from './examples.js';
@@ -238,12 +238,11 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   const undoButton = iconButton({ icon: 'undo', label: 'Undo', tip: 'Undo' }, tools);
   const redoButton = iconButton({ icon: 'redo', label: 'Redo', tip: 'Redo' }, tools);
   make('span', 'rule', tools).setAttribute('aria-hidden', 'true');
+  const newButton = iconButton({ icon: 'new', label: 'Start a new tab', tip: 'New' }, tools);
   const examplesButton = iconButton({ icon: 'examples', label: 'Example songs', tip: 'Examples' }, tools);
   const open = iconButton({ icon: 'open', label: 'Open a tab file', tip: 'Open' }, tools);
   const saveButton = iconButton({ icon: 'save', label: 'Save as a text file', tip: 'Save' }, tools);
   const printButton = iconButton({ icon: 'print', label: 'Print the tab', tip: 'Print' }, tools);
-  make('span', 'rule', tools).setAttribute('aria-hidden', 'true');
-  const clearButton = iconButton({ icon: 'clear', label: 'Clear the tab', tip: 'Clear' }, tools);
   const toggle = iconButton(
     { icon: 'chevron', label: 'Collapse the tab panel', tip: 'Collapse' },
     transport,
@@ -346,7 +345,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     const note = (refusing ? '' : message) || statusFor(parsed);
     status.replaceChildren();
     if (note) make('span', null, status, note);
-    clearButton.disabled = !editing || clearDocument(text) === null;
+    newButton.disabled = !canStartNew(text);
     undoButton.disabled = !history.canUndo();
     redoButton.disabled = !history.canRedo();
     // A button that just went disabled cannot keep focus; the editor is the natural place for it.
@@ -436,16 +435,15 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (wasPlaying) start();
   };
 
-  const clearAll = () => {
-    if (!editing) return;
+  const startNew = () => {
     const cleared = clearDocument(text);
     if (!cleared) return;
-    const fromButton = document.activeElement === clearButton;
+    const fromButton = document.activeElement === newButton;
     if (playing) stop();
     clearRefusal();
     text = cleared.text;
     history.record(text);
-    flash('Tab cleared.');
+    flash('New tab.');
     setEditing(initialEditing(text));
     editor.update();
     editor.setCue(0);
@@ -483,11 +481,11 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     refresh();
   };
 
-  [play, back, clearButton, undoButton, redoButton, editToggle].forEach((b) => {
+  [play, back, newButton, undoButton, redoButton, editToggle].forEach((b) => {
     b.addEventListener('mousedown', (e) => e.preventDefault());
   });
   back.addEventListener('click', backToStart);
-  clearButton.addEventListener('click', clearAll);
+  newButton.addEventListener('click', startNew);
   undoButton.addEventListener('click', undo);
   redoButton.addEventListener('click', redo);
   editToggle.addEventListener('click', () => setEditing(!editing));
