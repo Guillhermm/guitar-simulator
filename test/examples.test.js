@@ -162,7 +162,7 @@ test('the dialog groups songs, sorts each group by title and orders groups by th
 
 test('the shipped examples read Guitar chords first, then the other examples, then the minuets', () => {
   const groups = groupSongs(SONGS);
-  assert.deepEqual(groups.map((g) => g.name), [DEFAULT_GROUP, 'Minuetos Op. 1']);
+  assert.deepEqual(groups.map((g) => g.name), [DEFAULT_GROUP, 'Minuetos']);
   assert.equal(groups[0].songs[0].id, 'guitar-chords');
   assert.deepEqual(groups[1].songs.map((s) => s.id), ['minueto-op1-1', 'minueto-op1-2', 'minueto-op1-3']);
   SONGS.filter((s) => s.arranger).forEach((s) => assert.equal(s.arranger, 'Guitar Simulator AI Team', s.id));

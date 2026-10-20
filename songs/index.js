@@ -1,39 +1,39 @@
 // To add a song: drop a module in this folder that exports the tab text as its default export, then
 // add an entry here. `module` is the file name inside songs/, loaded on demand with import(). `group`
-// puts it in a column of its own in the Examples dialog; without one it goes under More examples.
+// puts it in a column of its own in the Examples dialog; without one it goes under Some examples.
 // The dialog sorts by title, so the order here does not matter.
 export const SONGS = [
   {
     id: 'minueto-op1-1',
     title: 'Minueto Op. 1 No. 1 in E major',
-    artist: 'Guilherme Almeida Zeni',
+    artist: 'Guilherme A. Zeni',
     arranger: 'Guitar Simulator AI Team',
     note: 'Allegro, from the piano score. Melody over a bass in first position, a short run up to the 9th fret.',
     module: 'minueto-op1-1.js',
-    group: 'Minuetos Op. 1',
+    group: 'Minuetos',
   },
   {
     id: 'minueto-op1-2',
     title: 'Minueto Op. 1 No. 2 in G minor',
-    artist: 'Guilherme Almeida Zeni',
+    artist: 'Guilherme A. Zeni',
     arranger: 'Guitar Simulator AI Team',
     note: 'Andante, from the piano score. Opens with the accelerating run and ends with it in the bass.',
     module: 'minueto-op1-2.js',
-    group: 'Minuetos Op. 1',
+    group: 'Minuetos',
   },
   {
     id: 'minueto-op1-3',
     title: 'Minueto Op. 1 No. 3 in C major',
-    artist: 'Guilherme Almeida Zeni',
+    artist: 'Guilherme A. Zeni',
     arranger: 'Guitar Simulator AI Team',
     note: 'Andante grazioso, from the piano score. The middle section moves to the 7th position in thirds and octaves.',
     module: 'minueto-op1-3.js',
-    group: 'Minuetos Op. 1',
+    group: 'Minuetos',
   },
   {
     id: 'rondo-alla-turca',
     title: 'Rondo alla Turca',
-    artist: 'Wolfgang Amadeus Mozart',
+    artist: 'Wolfgang A. Mozart',
     arranger: 'Guitar Simulator AI Team',
     note: 'The whole movement without repeats, from a public-domain edition, mostly in first position.',
     module: 'rondo-alla-turca.js',

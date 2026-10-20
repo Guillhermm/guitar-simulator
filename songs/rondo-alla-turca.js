@@ -1,5 +1,5 @@
 export default `Title: Rondo alla Turca
-Artist: Wolfgang Amadeus Mozart
+Artist: Wolfgang A. Mozart
 Arranged by: Guitar Simulator AI Team
 Tempo: 240
 Third movement of the Piano Sonata K. 331, from the public-domain Mutopia Project edition, played once

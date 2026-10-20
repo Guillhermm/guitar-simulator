@@ -6,7 +6,7 @@ const make = (tag, className, parent, text) => {
   return node;
 };
 
-export const DEFAULT_GROUP = 'More examples';
+export const DEFAULT_GROUP = 'Some examples';
 
 const byTitle = (a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' });
 
