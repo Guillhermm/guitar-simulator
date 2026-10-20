@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
+                      ".webmanifest": "application/manifest+json"}
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()

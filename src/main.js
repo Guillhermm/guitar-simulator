@@ -6,6 +6,7 @@ import { buildCredit } from './credit.js';
 import { installStageFit } from './stage-fit.js';
 import { createEditor as createTextEditor } from './editor-text.js';
 import { createEditor as createGridEditor } from './editor-grid.js';
+import { registerServiceWorker } from './offline.js';
 
 buildCredit(document.querySelector('.credit'));
 
@@ -33,3 +34,4 @@ installStageFit({
 requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('preload')));
 
 installPrint({ getText: () => panel.getText() });
+registerServiceWorker();
