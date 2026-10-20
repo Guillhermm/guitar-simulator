@@ -170,7 +170,8 @@ html, body {
 .mark { display: block; height: 1rem; width: auto; }
 .mark-github { width: 1rem; fill: currentColor; stroke: none; }
 .mark-linkedin { aspect-ratio: 840 / 779; }
-.mark-profile { width: 1rem; }
+/* The favicon's stroke width, in its own units, so the wave keeps its weight. */
+.mark-profile { width: 1rem; fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; }
 .mark.on-dark { display: none; }
 @media (prefers-color-scheme: dark) {
   .credit a.ilink { color: #fff; }
