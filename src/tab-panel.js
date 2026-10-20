@@ -239,8 +239,8 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   const redoButton = iconButton({ icon: 'redo', label: 'Redo', tip: 'Redo' }, tools);
   make('span', 'rule', tools).setAttribute('aria-hidden', 'true');
   const newButton = iconButton({ icon: 'new', label: 'Start a new tab', tip: 'New' }, tools);
-  const examplesButton = iconButton({ icon: 'examples', label: 'Example songs', tip: 'Examples' }, tools);
   const open = iconButton({ icon: 'open', label: 'Open a tab file', tip: 'Open' }, tools);
+  const examplesButton = iconButton({ icon: 'examples', label: 'Example songs', tip: 'Examples' }, tools);
   const saveButton = iconButton({ icon: 'save', label: 'Save as a text file', tip: 'Save' }, tools);
   const printButton = iconButton({ icon: 'print', label: 'Print the tab', tip: 'Print' }, tools);
   const toggle = iconButton(
