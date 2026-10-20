@@ -108,6 +108,8 @@ Cross-Origin-Opener-Policy: same-origin
 
 with `.webmanifest` served as `application/manifest+json`. `frame-ancestors` keeps the page out of other sites' frames, which only a header can do.
 
+GitHub Pages, the planned host, sends none of these and cannot be configured to (checked on 2026-10-20). It does serve `.webmanifest` with the right type, redirects HTTP to HTTPS when "Enforce HTTPS" is on, and the meta-tag policy still applies, so script injection stays blocked. What is lost is `frame-ancestors` (another site could frame the page; there is no account, no stored data and nothing to steal by a hidden click), HSTS (only the first visit over plain HTTP is exposed) and `nosniff` (every file served is our own). For this app that is acceptable; a host with header control, or a CDN in front of Pages, closes the gap if it ever stores anything.
+
 ## Brand marks
 
 The LinkedIn "in" logo and the GitHub Invertocat are trademarks of LinkedIn Corporation and GitHub, Inc. They are used here only to link to the author's own profile and to this project's repository, unmodified, in black or white and nothing else, and do not imply endorsement.
