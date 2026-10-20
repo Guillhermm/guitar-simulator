@@ -50,7 +50,7 @@ The dock under the guitar holds a tab: write it, play it back on the guitar, ope
 - **Undo and redo**: one history of the document text, kept in memory only (200 steps, not saved). Typing is grouped by word (a run of letters, a run of spaces and a run of deletions are each one step, and a pause of a second ends a step), song-field typing by field, Grid and guitar writes by column, and New, Open, an example load and a tempo change are steps of their own. Undo and Redo buttons sit in the tools; Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y do the same, also inside the Text editor, where they replace the textarea's own undo. A new edit drops what Redo would have restored.
 - **Example songs**: see Example songs below.
 - **Remembered**: the editor choice and whether the dock is open are saved in the browser under `guitar-simulator.ui.v1`, apart from the tab text. Without a saved value the dock starts open, except on a portrait phone, where it starts collapsed, and the editor is Text.
-- **Credit**: a line under the hint reads "Made by Guilherme Almeida Zeni with AI agents." followed by three icon links (LinkedIn, GitHub, his profile site), each 2.75 rem wide, named by `aria-label`, opening in a new tab and with a tooltip drawn to the right of the row, where nothing sits under it. The marks are solid black on a light theme and white on a dark one. See Brand marks below.
+- **Credit**: a line under the hint reads "Made by Guilherme Almeida Zeni with AI agents." followed by three icon links (LinkedIn, GitHub, his profile site), each 2.75 rem wide, named by `aria-label`, opening in a new tab and with a tooltip drawn to the right of the row, where nothing sits under it. The LinkedIn and GitHub marks are solid black on a light theme and white on a dark one; the profile mark is the site's own icon (see Brand marks). See Brand marks below.
 - **Files**: Open loads a `.txt` file of up to 256 KB, also by dropping it on the dock; Save downloads the tab as `title_artist_YYYYMMDD-HHMMSS.txt`, where title and artist are lowercase ASCII with hyphens ("Canção do Mar" becomes `cancao-do-mar`) and the time is local; the artist part is left out when missing, and a title with no Latin letters gives `untitled`. The PDF gets the same name. The text is saved in the browser as you type and comes back on the next visit.
 
 ## Install and offline
@@ -93,7 +93,7 @@ The LinkedIn "in" logo and the GitHub Invertocat are trademarks of LinkedIn Corp
 
 - `assets/linkedin/InBug-Black.png` and `InBug-White.png`: the files of the in-logo download on <https://brand.linkedin.com/in-logo>, unaltered. That download offers PNG only, so the page shows one or the other by color scheme.
 - The GitHub mark in `src/credit.js` is the path data of `GitHub_Invertocat_Black.svg` from `GitHub_Logos.zip` on <https://brand.github.com/foundations/logo>, copied unchanged and filled `#000` or `#fff` by the color scheme.
-- The profile link's icon is our own, in `src/icons.js`.
+- The profile link's icon is the favicon of guilherme.zenus.systems (a wave on a rounded square, `PROFILE_MARK` in `src/credit.js`), as the site serves it on a light theme and in the site's own light palette on a dark one.
 
 ## How the sound is made
 

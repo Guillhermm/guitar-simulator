@@ -170,7 +170,7 @@ html, body {
 .mark { display: block; height: 1rem; width: auto; }
 .mark-github { width: 1rem; fill: currentColor; stroke: none; }
 .mark-linkedin { aspect-ratio: 840 / 779; }
-.mark-profile { width: 1rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.mark-profile { width: 1rem; }
 .mark.on-dark { display: none; }
 @media (prefers-color-scheme: dark) {
   .credit a.ilink { color: #fff; }

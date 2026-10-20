@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CREDIT_LINKS, CREDIT_TEXT, GITHUB_MARK, LINKEDIN_MARKS, buildCredit, buildCreditMark } from '../src/credit.js';
-import { ICONS } from '../src/icons.js';
 
 const node = (tag, ns = null) => {
   const n = { tag, ns, children: [], attrs: new Map(), textContent: '' };
@@ -78,10 +77,19 @@ test('the GitHub mark is one path in the official viewBox and nothing else', () 
   assert.equal(svg.children[0].attrs.has('fill'), false, 'color comes from the stylesheet, not the markup');
 });
 
-test('the profile link uses our own icon', () => {
-  const [svg] = buildCreditMark('profile', fakeDoc);
-  assert.equal(svg.attrs.get('viewBox'), '0 0 24 24');
-  assert.deepEqual(svg.children.map((c) => c.attrs.get('d')), ICONS.profile);
+test('the profile link shows the profile site\'s own icon, as served on light and in its light palette on dark', () => {
+  const marks = buildCreditMark('profile', fakeDoc);
+  assert.deepEqual(marks.map((m) => m.attrs.get('class')), ['mark mark-profile on-light', 'mark mark-profile on-dark']);
+  marks.forEach((svg) => {
+    assert.equal(svg.attrs.get('viewBox'), '0 0 32 32');
+    const [rect, wave] = svg.children;
+    assert.equal(rect.tag, 'rect');
+    assert.equal(rect.attrs.get('rx'), '7');
+    assert.equal(wave.attrs.get('d'), 'M6 19c3-5.5 6.5-5.5 10 0s7 5.5 10 0');
+    assert.equal(wave.attrs.get('transform'), 'translate(0 -3)');
+  });
+  assert.deepEqual(marks.map((m) => [m.children[0].attrs.get('fill'), m.children[1].attrs.get('stroke')]),
+    [['#0B0F11', '#2DD4BF'], ['#FCFDFD', '#0D9488']]);
 });
 
 test('an unknown mark throws', () => {
