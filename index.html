@@ -6,7 +6,44 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="light dark">
-  <title>Guitar Simulator</title>
+  <title>Guitar Simulator: play a classical guitar in your browser</title>
+  <meta name="description" content="Play a realistic classical guitar in your browser: tap or strum the strings, write and play guitar tablature, and try example songs. Free, works offline.">
+  <meta name="author" content="Guilherme Almeida Zeni">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://guillhermm.github.io/guitar-simulator/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Guitar Simulator">
+  <meta property="og:title" content="Guitar Simulator: play a classical guitar in your browser">
+  <meta property="og:description" content="Play a realistic classical guitar in your browser: tap or strum the strings, write and play guitar tablature, and try example songs. Free, works offline.">
+  <meta property="og:url" content="https://guillhermm.github.io/guitar-simulator/">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image" content="https://guillhermm.github.io/guitar-simulator/assets/icon/share.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A classical guitar beside the words Guitar Simulator, a classical guitar in your browser">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Guitar Simulator: play a classical guitar in your browser">
+  <meta name="twitter:description" content="Play a realistic classical guitar in your browser: tap or strum the strings, write and play guitar tablature, and try example songs. Free, works offline.">
+  <meta name="twitter:image" content="https://guillhermm.github.io/guitar-simulator/assets/icon/share.png">
+  <meta name="twitter:image:alt" content="A classical guitar beside the words Guitar Simulator, a classical guitar in your browser">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Guitar Simulator",
+    "url": "https://guillhermm.github.io/guitar-simulator/",
+    "description": "Play a realistic classical guitar in your browser: tap or strum the strings, write and play guitar tablature, and try example songs. Free, works offline.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any, in a web browser",
+    "browserRequirements": "Requires JavaScript and the Web Audio API",
+    "inLanguage": "en",
+    "isAccessibleForFree": true,
+    "image": "https://guillhermm.github.io/guitar-simulator/assets/icon/share.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Guilherme Almeida Zeni", "url": "https://guilherme.zenus.systems" }
+  }
+  </script>
   <meta name="theme-color" content="#F1E9DC" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14110E" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-title" content="Guitar">
@@ -19,6 +56,7 @@
 <body>
   <div class="app preload" id="app">
     <main class="stage" id="stage">
+      <h1 class="sr-only">Guitar Simulator: a classical guitar you play in your browser</h1>
       <div class="stage-probe" id="stage-probe" aria-hidden="true"></div>
       <div class="stage-inner">
         <svg id="guitar" class="guitar" viewBox="0 0 1240 480" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Classical guitar"></svg>
@@ -30,6 +68,7 @@
     </main>
     <section id="dock" class="dock" aria-label="Tablature"></section>
   </div>
+  <noscript><p class="noscript">Guitar Simulator is a classical guitar you play in your browser, with a tablature player and editor. It needs JavaScript to run.</p></noscript>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

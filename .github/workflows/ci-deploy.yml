@@ -1,0 +1,72 @@
+name: CI and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Run tests
+        run: npm test
+
+      - name: Stage the published files
+        run: |
+          set -eu
+          mkdir _site
+          cp -R index.html styles.css sw.js manifest.webmanifest sitemap.xml src songs assets _site/
+
+      - name: Check that every precached file is published
+        run: |
+          node --input-type=module -e '
+            import { readFileSync, existsSync, statSync } from "node:fs";
+            const sw = readFileSync("sw.js", "utf8");
+            const block = sw.match(/const SHELL = \[([\s\S]*?)\];/);
+            if (!block) throw new Error("SHELL list not found in sw.js");
+            const files = [...block[1].matchAll(/^\s*(?:\/\/.*)?$|\x27([^\x27]+)\x27/gm)]
+              .map((m) => m[1]).filter(Boolean);
+            const missing = files.map((f) => (f === "./" ? "index.html" : f))
+              .filter((f) => !existsSync("_site/" + f) || !statSync("_site/" + f).isFile());
+            console.log(files.length + " precached files checked");
+            if (missing.length) { console.error("Missing from _site: " + missing.join(", ")); process.exit(1); }
+          '
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

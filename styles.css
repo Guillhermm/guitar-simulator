@@ -635,6 +635,8 @@ html, body {
 .example-note { opacity: 0.8; }
 .examples-close { margin-left: auto; display: flex; }
 
+.noscript { margin: 2rem 1rem; text-align: center; color: var(--text); }
+
 .sr-only {
   position: absolute;
   width: 1px;

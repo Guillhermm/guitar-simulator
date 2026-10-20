@@ -1,5 +1,5 @@
 // Bump the version when the list changes; the old cache is dropped on activate.
-const CACHE = 'guitar-simulator-v3';
+const CACHE = 'guitar-simulator-v4';
 
 // Every file the page can ask for, so it runs offline after one visit. test/pwa.test.js keeps the
 // list equal to what is on disk.
@@ -44,6 +44,7 @@ const SHELL = [
   'assets/icon/icon-maskable-512.png',
   'assets/icon/icon-maskable.svg',
   'assets/icon/icon.svg',
+  'assets/icon/share.png',
   'assets/linkedin/InBug-Black.png',
   'assets/linkedin/InBug-White.png',
 ];

@@ -1,5 +1,6 @@
 """Writes the app icons into assets/icon/: three SVGs from one drawing, then PNGs rendered with
-macOS's qlmanage and sips. Rerun after changing the drawing: python3 tools/build_icons.py"""
+macOS's qlmanage and sips, and the 1200x630 share card for link previews. Rerun after changing the
+drawing: python3 tools/build_icons.py"""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -44,6 +45,18 @@ VARIANTS = {
     'icon-maskable.svg': svg(0.66, BG),   # Android crops to a circle: art inside the central 80%
     'favicon.svg': svg(0.95, None),       # browser tab, transparent
 }
+# The share card. qlmanage renders a square, so the card is drawn in the middle 630 rows of a
+# 1200x1200 square and cropped; drawn at 1200x630 it would come back padded with white.
+SHARE = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200">
+<rect width="1200" height="1200" fill="{BG}"/>
+<g transform="translate(290 600) rotate(40) scale(1.0) translate(0 -5)">{GUITAR}</g>
+<g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<text x="540" y="578" font-size="76" font-weight="700" fill="#F1E9DC">Guitar Simulator</text>
+<text x="542" y="640" font-size="36" fill="#E8B26B">A classical guitar in your browser</text>
+<text x="542" y="696" font-size="28" fill="#F1E9DC" fill-opacity="0.75">Tabs, playback and example songs. Free.</text>
+</g></svg>
+'''
+
 PNGS = [('icon.svg', 'icon-192.png', 192), ('icon.svg', 'icon-512.png', 512),
         ('icon.svg', 'apple-touch-icon.png', 180), ('icon-maskable.svg', 'icon-maskable-512.png', 512),
         ('favicon.svg', 'favicon-32.png', 32)]
@@ -60,6 +73,11 @@ def main():
         for src, png, size in PNGS:
             subprocess.run(['sips', '-Z', str(size), f'{tmp}/{src}.png', '--out', str(OUT / png)],
                            check=True, capture_output=True)
+        card = Path(tmp) / 'share.svg'
+        card.write_text(SHARE)
+        subprocess.run(['qlmanage', '-t', '-s', '1200', '-o', tmp, str(card)], check=True, capture_output=True)
+        subprocess.run(['sips', '--cropToHeightWidth', '630', '1200', f'{tmp}/share.svg.png', '--out', str(OUT / 'share.png')],
+                       check=True, capture_output=True)
 
 
 if __name__ == '__main__':

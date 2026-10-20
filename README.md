@@ -89,6 +89,18 @@ To add a song:
 
 Songs are loaded with a dynamic `import()`, which the page's Content Security Policy allows (`script-src 'self'`); `fetch` is blocked by `connect-src 'none'`. `test/examples.test.js` checks that every entry loads and has its headers, and that each minuet and the Rondo keeps one bar per block, opens with its melody and never asks for more than one hand's span.
 
+## Search and sharing
+
+The page carries what search engines and link previews read: a descriptive title and meta description, a canonical URL (`https://guillhermm.github.io/guitar-simulator/`), Open Graph and Twitter card tags with a 1200x630 share card (`assets/icon/share.png`, drawn by `tools/build_icons.py` with the icons), schema.org `WebApplication` data in a JSON-LD block (a data block, so the Content Security Policy does not block it), a visually hidden `h1`, a `noscript` description, and `sitemap.xml`. There is no `robots.txt`: on a project site crawlers read only the one at the domain root, and `guillhermm.github.io` has none, which means everything may be crawled. Submit the sitemap in Google Search Console once the site is live.
+
+Lighthouse scores Accessibility 100, Best Practices 100 and SEO 92 on a phone (checked 2026-10-20). The one SEO audit it fails, "robots.txt is not valid", is Lighthouse fetching `robots.txt` from inside the page, which `connect-src 'none'` forbids; crawlers do not run inside the page, so they are not affected, and the policy stays closed rather than opened for a score.
+
+## Deployment
+
+Every push to main runs `.github/workflows/ci-deploy.yml`: the test suite, then the published files are staged and checked, and only if all of that passes the site goes to GitHub Pages. Only index.html, styles.css, sw.js, manifest.webmanifest, sitemap.xml, src/, songs/ and assets/ are published; tests, tools, docs and workflow files are not. A step fails the run if any file in the sw.js precache list is missing from what gets published. The deploy can also be started by hand from the Actions tab. Each action is pinned to a full commit SHA with its version in a comment, so updating one is a deliberate change; the jobs get only the permissions they need.
+
+One-time setup in the repository settings: make the repository public (free-plan Pages needs it, and the credit's GitHub link works only then), set Pages, Build and deployment, Source to GitHub Actions, and after the first deploy tick Enforce HTTPS.
+
 ## Security
 
 Everything a person can put in reaches the page as text and never as markup: the tab text, the song fields, an opened or dropped file, the saved copy in the browser and the print view are all written with `textContent` and form values, and the code has no `innerHTML`, `eval`, `document.write`, and no link or script address built from input. Header values drop control and bidirectional-override characters, file names are lowercase ASCII slugs, the tempo is clamped to 40-240, and the saved document and the editor choice are checked field by field when the page opens. A document is at most 256 KB however it arrives, so the saved copy can always be reopened. The Content Security Policy in `index.html` is the second wall: scripts, styles, images, the manifest and the worker come only from the site itself, and `connect-src`, `object-src`, `base-uri` and `form-action` are closed.
