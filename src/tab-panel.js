@@ -7,12 +7,13 @@ import { buildIcon } from './icons.js';
 import { exportFile, readImportedFile, fileBase, ImportError } from './files.js';
 import { printTab } from './print.js';
 import {
-  afterLoad, canStartNew, clearedText, clearDocument, initialEditing, editingLabel, guitarMayWrite, playPress, historyKey,
+  afterLoad, canStartNew, clearedText, clearDocument, initialEditing, editingLabel, playPress, historyKey,
 } from './edit-rules.js';
 import { createHistory } from './history.js';
 import { loadExampleText, createExamplesFlow } from './examples.js';
 import { buildExamplesDialog } from './examples-dialog.js';
 import { SONGS } from '../songs/index.js';
+import { buildVolume } from './volume.js';
 
 export { clearedText, clearDocument };
 
@@ -189,8 +190,6 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   let shown = null;
   let frame = 0;
   let saveTimer = null;
-  let lastFocus = null;
-  let armed = false;
   let message = '';
   let flashTimer = null;
   let editing = initialEditing(text);
@@ -213,6 +212,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   const play = iconButton({ icon: 'play', label: 'Play', tip: 'Play' }, transport, 'btn btn-play');
   play.setAttribute('aria-describedby', status.id);
   const back = iconButton({ icon: 'back', label: 'Back to start', tip: 'Back to start' }, transport);
+  buildVolume({ parent: transport, player, storage });
   const tempoLabel = make('label', 'tempo', transport);
   const tempo = make('input', 'tempo-input', tempoLabel);
   tempo.type = 'number';
@@ -471,7 +471,6 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     persist();
     refresh();
     if (fromButton) undoButton.focus();
-    armed = editing;
   };
 
   // Undo and redo swap the whole document text, so the song fields and either editor just re-read it.
@@ -510,10 +509,7 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   newButton.addEventListener('click', startNew);
   undoButton.addEventListener('click', undo);
   redoButton.addEventListener('click', redo);
-  editToggle.addEventListener('click', () => {
-    setEditing(!editing);
-    armed = editing;
-  });
+  editToggle.addEventListener('click', () => setEditing(!editing));
 
   const flow = createExamplesFlow({
     show: () => examplesDialog.open(),
@@ -640,10 +636,6 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
     if (e.inputType === 'historyUndo') undo(); else redo();
   });
 
-  document.addEventListener('focusin', (e) => {
-    lastFocus = e.target;
-    if (e.target !== editToggle) armed = false;
-  });
   window.addEventListener('pagehide', persist);
 
   applyOpen(ui.dockOpen);
@@ -651,11 +643,10 @@ export const createTabPanel = ({ dock, root, player, guitar, editors, storage = 
   setEditing(editing);
 
   return {
-    // Only a press that follows editing writes to the tab, and only with editing on; playing leaves it alone.
+    // With editing on every press writes, wherever focus is: on a phone the dock is often collapsed to
+    // make the guitar big enough to play. Playback drives the guitar without coming through here.
     onFretPress: (row, fret) => {
-      if (guitarMayWrite({ editing, armed, focusInEditor: Boolean(lastFocus) && editorBox.contains(lastFocus) })) {
-        editor.writeFret(row, fret);
-      }
+      if (editing) editor.writeFret(row, fret);
     },
     getText: () => text,
     stop,

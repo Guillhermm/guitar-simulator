@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { keptCaret, writeAt } from '../src/editor-text.js';
+import { centerOn, keptCaret, writeAt } from '../src/editor-text.js';
 import { withMeta, parseTab } from '../src/tab.js';
 
 const TAB = 'e|-0-|\nB|-1-|\nG|-2-|\nD|-2-|\nA|-0-|\nE|---|';
@@ -49,4 +49,12 @@ test('away from the bar the caret moves two columns on in the same block', () =>
   const wide = TAB.replace(/\|-(.)-\|/g, '|-$1------|');
   const { caret } = writeAt(wide, { block: 0, row: 1, col: 3 }, 7);
   assert.deepEqual(caret, { block: 0, row: 1, col: 5 });
+});
+
+test('the playing block is scrolled to the middle of the sheet, clamped to what can scroll', () => {
+  assert.equal(centerOn(500, 120, 300, 2000), 410);
+  assert.equal(centerOn(40, 120, 300, 2000), 0);
+  assert.equal(centerOn(1950, 120, 300, 1800), 1800);
+  assert.equal(centerOn(500, 400, 300, 2000), 500);
+  assert.equal(centerOn(500, 120, 300, -10), 0);
 });

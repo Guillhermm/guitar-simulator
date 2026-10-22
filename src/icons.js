@@ -30,6 +30,9 @@ export const ICONS = {
   ],
   examples: ['M9 6.5h10', 'M9 12h10', 'M9 17.5h10', 'M5 6.5h.01', 'M5 12h.01', 'M5 17.5h.01'],
   chevron: ['M6 9.5l6 6 6-6'],
+  'volume-high': ['M4.5 9.5h3l4.5-4v13l-4.5-4h-3z', 'M15.5 9a4.2 4.2 0 0 1 0 6', 'M18 6.5a7.8 7.8 0 0 1 0 11'],
+  'volume-low': ['M4.5 9.5h3l4.5-4v13l-4.5-4h-3z', 'M15.5 9a4.2 4.2 0 0 1 0 6'],
+  'volume-off': ['M4.5 9.5h3l4.5-4v13l-4.5-4h-3z', 'M16 9.5l5 5', 'M21 9.5l-5 5'],
 };
 
 // Stroke styling lives in the .icon rule in styles.css; the markup carries geometry only.

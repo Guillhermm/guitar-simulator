@@ -328,3 +328,16 @@ test('the page asks iOS for a playback session so the silent switch does not mut
   assert.doesNotThrow(() => preferPlayback({}));
   assert.doesNotThrow(() => preferPlayback(undefined));
 });
+
+test('the volume set before the first note applies when the context is made, and later ones ramp', () => {
+  const { ctx, log } = fakeContext();
+  const player = createPlayer({ createContext: () => ctx, random: () => 0.5 });
+  player.setVolume(0.5);
+  player.play(64);
+  const master = log.gains[0];
+  assert.equal(master.gain.value, 0.3 * 0.5);
+  player.setVolume(2);
+  player.setVolume(-1);
+  assert.deepEqual(master.gain.calls.map((c) => c.v), [0.3, 0]);
+  assert.ok(master.gain.calls.every((c) => c.type === 'target' && c.t === ctx.currentTime));
+});

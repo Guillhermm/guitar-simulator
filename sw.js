@@ -1,5 +1,5 @@
 // Bump the version when the list changes; the old cache is dropped on activate.
-const CACHE = 'guitar-simulator-v4';
+const CACHE = 'guitar-simulator-v5';
 
 // Every file the page can ask for, so it runs offline after one visit. test/pwa.test.js keeps the
 // list equal to what is on disk.
@@ -28,6 +28,7 @@ const SHELL = [
   'src/stage-fit.js',
   'src/storage.js',
   'src/tab-panel.js',
+  'src/volume.js',
   'src/tab.js',
   'songs/guitar-chords.js',
   'songs/index.js',

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { swapEditor, createTabPanel } from '../src/tab-panel.js';
-import { MAX_BYTES, UI_KEY } from '../src/storage.js';
+import { KEY, MAX_BYTES, UI_KEY } from '../src/storage.js';
 
 const fakeEditor = (name, cue = 0, log = []) => {
   const editor = {
@@ -13,6 +13,7 @@ const fakeEditor = (name, cue = 0, log = []) => {
     setCue: (step) => { editor.log.push([name, 'setCue', step]); },
     setPlayhead: (event) => { editor.log.push([name, 'setPlayhead', event]); },
     dispose: () => { editor.log.push([name, 'dispose']); },
+    writeFret: (row, fret) => { editor.log.push([name, 'writeFret', row, fret]); },
   };
   return editor;
 };
@@ -82,7 +83,7 @@ const withBrowser = (phone, fn) => {
   }
 };
 
-const mount = ({ phone = false, ui = null }) => withBrowser(phone, () => {
+const mount = ({ phone = false, ui = null, saved = null }) => withBrowser(phone, () => {
   const built = [];
   const seen = {};
   const editors = {
@@ -91,12 +92,12 @@ const mount = ({ phone = false, ui = null }) => withBrowser(phone, () => {
   };
   const writes = [];
   const storage = {
-    getItem: (k) => (k === UI_KEY ? ui : null),
+    getItem: (k) => (k === UI_KEY ? ui : k === KEY ? saved : null),
     setItem: (k, v) => writes.push([k, v]),
   };
   const root = { dataset: {} };
-  createTabPanel({ dock: stub(), root, player: stub(), guitar: stub(), editors, storage });
-  return { built, root, writes, seen };
+  const panel = createTabPanel({ dock: stub(), root, player: stub(), guitar: stub(), editors, storage });
+  return { built, root, writes, seen, panel };
 });
 
 test('an edit past the size limit is refused and the editor goes back to the accepted text', () => withBrowser(false, () => {
@@ -139,3 +140,20 @@ test('?editor= in the address changes nothing: only the saved choice picks the e
 test('building the panel writes no ui state until the user changes something', () => {
   assert.deepEqual(mount({}).writes, []);
 });
+
+test('with editing on every guitar press writes, whatever holds focus', () => withBrowser(false, () => {
+  const { seen, panel, root } = mount({});
+  assert.equal(root.dataset.editing, 'true');
+  seen.editor.log.length = 0;
+  panel.onFretPress(2, 5);
+  assert.deepEqual(seen.editor.log, [['text', 'writeFret', 2, 5]]);
+}));
+
+test('with editing off a guitar press only sounds', () => withBrowser(false, () => {
+  const text = 'Title: A\nArtist: B\ne|-3-|\nB|---|\nG|---|\nD|---|\nA|---|\nE|---|';
+  const { seen, panel, root } = mount({ saved: JSON.stringify({ text, tempo: 80 }) });
+  assert.equal(root.dataset.editing, 'false');
+  seen.editor.log.length = 0;
+  panel.onFretPress(2, 5);
+  assert.equal(seen.editor.log.filter(([, kind]) => kind === 'writeFret').length, 0);
+}));

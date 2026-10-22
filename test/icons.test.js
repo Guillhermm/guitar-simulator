@@ -18,9 +18,12 @@ const fakeDoc = {
   },
 };
 
-const NAMES = ['play', 'stop', 'back', 'open', 'save', 'new', 'undo', 'chevron', 'print', 'redo', 'pencil', 'pencil-off', 'examples'];
+const NAMES = [
+  'play', 'stop', 'back', 'open', 'save', 'new', 'undo', 'chevron', 'print', 'redo', 'pencil', 'pencil-off', 'examples',
+  'volume-high', 'volume-low', 'volume-off',
+];
 
-test('the fourteen icons of the design exist', () => {
+test('every icon of the design exists', () => {
   assert.deepEqual(Object.keys(ICONS).sort(), [...NAMES].sort());
 });
 

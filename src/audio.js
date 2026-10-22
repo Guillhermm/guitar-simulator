@@ -37,6 +37,7 @@ const defaultCreateContext = () => {
 export const createPlayer = ({ createContext = defaultCreateContext, random = Math.random } = {}) => {
   let ctx = null;
   let master = null;
+  let volume = 1;
   const buffers = new Map();
   const voices = new Map();
 
@@ -44,7 +45,7 @@ export const createPlayer = ({ createContext = defaultCreateContext, random = Ma
     if (ctx) return;
     ctx = createContext();
     master = ctx.createGain();
-    master.gain.value = MASTER_GAIN;
+    master.gain.value = MASTER_GAIN * volume;
     const limiter = ctx.createDynamicsCompressor();
     master.connect(limiter);
     limiter.connect(ctx.destination);
@@ -181,5 +182,11 @@ export const createPlayer = ({ createContext = defaultCreateContext, random = Ma
     return ctx.currentTime;
   };
 
-  return { play, resume, now, silence };
+  // 0 to 1, on top of the master level. A short ramp so dragging the slider never clicks.
+  const setVolume = (level) => {
+    volume = Math.min(1, Math.max(0, Number(level) || 0));
+    if (master) master.gain.setTargetAtTime(MASTER_GAIN * volume, ctx.currentTime, 0.015);
+  };
+
+  return { play, resume, now, silence, setVolume };
 };

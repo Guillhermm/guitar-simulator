@@ -24,10 +24,6 @@ export const initialEditing = (text) => isBlankDocument(text);
 
 export const editingLabel = (editing) => (editing ? 'Editing on' : 'Editing off');
 
-// A tap on the guitar writes into the tab only while editing is on and the editor is the target:
-// it holds focus, or editing was just switched on and nothing else has taken focus since. Switching
-// on does not focus the editor itself, since on a phone that raises the keyboard over the guitar.
-export const guitarMayWrite = ({ editing, focusInEditor, armed = false }) => editing && (focusInEditor || armed);
 
 // A picked example plays at once; an opened or dropped file may be there to edit or print, so it only
 // loads, with focus on Play so one key starts it (Guilherme, 2026-10-20, after product and design).

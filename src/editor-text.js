@@ -30,6 +30,13 @@ export const writeAt = (text, at, fret) => {
   return { text: next, caret: { block: at.block + 1, row: at.row, col: 0 } };
 };
 
+// The scroll offset that puts a span of `size` starting at `start` in the middle of a `view`, or its
+// start at the top when it does not fit, kept within 0..max.
+export const centerOn = (start, size, view, max) => {
+  const want = size >= view ? start : start + size / 2 - view / 2;
+  return Math.round(Math.min(Math.max(0, want), Math.max(0, max)));
+};
+
 export const createEditor = (container, { getText, setText, onCursor = () => {} }) => {
   container.replaceChildren();
   const wrap = document.createElement('div');
@@ -80,11 +87,9 @@ export const createEditor = (container, { getText, setText, onCursor = () => {} 
     if (x < area.scrollLeft || x > area.scrollLeft + area.clientWidth - 3 * ch) {
       area.scrollLeft = Math.max(0, x - PLAYHEAD_FRACTION * area.clientWidth);
     }
-    const top = line * lineHeight;
-    const bottom = top + ROWS_IN_BLOCK * lineHeight;
-    if (top < area.scrollTop || bottom > area.scrollTop + area.clientHeight) {
-      area.scrollTop = Math.max(0, top - lineHeight);
-    }
+    // Lines start below the padding, which read only also holds the label.
+    const start = (parseFloat(getComputedStyle(area).paddingTop) || 0) + line * lineHeight;
+    area.scrollTop = centerOn(start, ROWS_IN_BLOCK * lineHeight, area.clientHeight, area.scrollHeight - area.clientHeight);
     syncScroll();
   };
 

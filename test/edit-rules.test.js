@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  afterLoad, canStartNew, clearDocument, clearedText, editingLabel, guitarMayWrite, historyKey, initialEditing, isBlankDocument,
+  afterLoad, canStartNew, clearDocument, clearedText, editingLabel, historyKey, initialEditing, isBlankDocument,
   playPress,
 } from '../src/edit-rules.js';
 import { emptyTab, withMeta, withTempo } from '../src/tab.js';
@@ -37,18 +37,6 @@ test('a loaded song (an opened file or an example) starts with editing off, a bl
 test('the toggle names its state', () => {
   assert.equal(editingLabel(true), 'Editing on');
   assert.equal(editingLabel(false), 'Editing off');
-});
-
-test('guitar taps write only with editing on and an editor focused', () => {
-  assert.equal(guitarMayWrite({ editing: true, focusInEditor: true }), true);
-  assert.equal(guitarMayWrite({ editing: false, focusInEditor: true }), false);
-  assert.equal(guitarMayWrite({ editing: true, focusInEditor: false }), false);
-  assert.equal(guitarMayWrite({ editing: false, focusInEditor: false }), false);
-});
-
-test('switching editing on makes the guitar write before the editor is touched', () => {
-  assert.equal(guitarMayWrite({ editing: true, focusInEditor: false, armed: true }), true);
-  assert.equal(guitarMayWrite({ editing: false, focusInEditor: false, armed: true }), false);
 });
 
 test('Play on a tab with no notes opens the examples; with notes it plays; while playing it stops', () => {
