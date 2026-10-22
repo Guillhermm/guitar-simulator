@@ -6,6 +6,7 @@ export default `Title: Minueto Op. 1 No. 1 in E major
 Artist: Guilherme A. Zeni
 Arranged by: Guitar Simulator AI Team
 Tempo: 180
+Copyright (c) Guilherme Almeida Zeni. All rights reserved.
 
 [Allegro]
 e|4-2-0---4-2-0---|

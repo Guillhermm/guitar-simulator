@@ -506,7 +506,6 @@ html, body {
 .editor[data-editing="false"] .text-area { cursor: default; }
 /* Read only, the sheet starts below the label so the label never covers the first line. */
 .editor[data-editing="false"] { --sheet-top: 2.25rem; }
-.editor[data-editing="false"] .grid { padding-top: var(--sheet-top); }
 .editor[data-editing="false"] .cell { background: var(--ro-bg); cursor: default; }
 .editor[data-editing="false"] .cell.playing { background: var(--playhead-solid); }
 .field input:read-only { background: var(--ro-bg, transparent); }
@@ -552,12 +551,15 @@ html, body {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
-  padding: 0.25rem var(--pad) 0;
+  padding: 0.25rem var(--pad);
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
-.grid-block { flex: none; }
+/* Blocks sit in the vertical middle, where the eye already is during playback, read only included:
+   the label covers only the right end of the top row. Auto margins center without ever cutting a
+   block when the sheet is shorter than it. */
+.grid-block { flex: none; margin-block: auto; }
 .grid-row { display: flex; height: 1.5rem; }
 .grid-label { width: 1rem; text-align: center; line-height: 1.5rem; }
 .cell {

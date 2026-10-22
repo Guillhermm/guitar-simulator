@@ -166,3 +166,13 @@ test("Guilherme's own compositions carry a notice that keeps them out of the MIT
     assert.match(source, /^\/\/ Copyright \(c\) Guilherme Almeida Zeni\. All rights reserved\.\n\/\/ [^\n]*not covered by the MIT license/, song.id);
   });
 });
+
+test("the same notice shows in the tab itself, under the header, so it is on screen, on paper and in a saved file", async () => {
+  const own = SONGS.filter((song) => song.artist === 'Guilherme A. Zeni');
+  for (const song of own) {
+    const text = await loadExampleText(song);
+    assert.match(text, /\nTempo: \d+\nCopyright \(c\) Guilherme Almeida Zeni\. All rights reserved\.\n/, song.id);
+    const withoutNotice = text.replace('Copyright (c) Guilherme Almeida Zeni. All rights reserved.\n', '');
+    assert.deepEqual(parseTab(text).events, parseTab(withoutNotice).events, `${song.id}: the notice plays nothing`);
+  }
+});

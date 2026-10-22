@@ -6,6 +6,7 @@ export default `Title: Minueto Op. 1 No. 2 in G minor
 Artist: Guilherme A. Zeni
 Arranged by: Guitar Simulator AI Team
 Tempo: 200
+Copyright (c) Guilherme Almeida Zeni. All rights reserved.
 One column is a 32nd note in this tab, so Tempo 200 plays the Andante at 100.
 
 [Andante, accelerando]
